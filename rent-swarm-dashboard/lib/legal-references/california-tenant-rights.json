@@ -1,0 +1,68 @@
+{
+  "jurisdiction": "California",
+  "title": "California Tenant Protection Laws",
+  "sections": [
+    {
+      "id": "entry-notice",
+      "title": "Landlord Entry Requirements",
+      "text": "Landlords must provide at least 24 hours written notice before entering a rental unit, except in cases of emergency. The notice must specify the date, approximate time, and purpose of entry. Entry without proper notice violates California Civil Code.",
+      "keywords": ["entry", "notice", "24 hours", "written notice", "enter", "access", "inspection", "repair"],
+      "violation_examples": [
+        "enter at any time",
+        "enter without notice",
+        "enter at landlord's discretion",
+        "immediate access",
+        "no notice required"
+      ]
+    },
+    {
+      "id": "security-deposit",
+      "title": "Security Deposit Limits and Refundability",
+      "text": "In California, security deposits are limited to 2 months' rent for unfurnished units and 3 months' rent for furnished units. All deposits must be refundable and returned within 21 days of lease termination with itemized deductions. Landlords cannot make deposits 'non-refundable' or exercise unilateral discretion over returns.",
+      "keywords": ["security deposit", "deposit", "refund", "non-refundable", "refundable", "2 months", "3 months", "21 days", "itemized"],
+      "violation_examples": [
+        "non-refundable deposit",
+        "generally non-refundable",
+        "deposit at landlord's discretion",
+        "landlord may retain deposit",
+        "unilateral discretion"
+      ]
+    },
+    {
+      "id": "automatic-renewal",
+      "title": "Lease Renewal Requirements",
+      "text": "Leases cannot automatically renew without explicit tenant consent. Tenants must receive written notice at least 30 days before lease expiration if the landlord wishes to renew or change terms. Automatic renewal clauses may be unenforceable.",
+      "keywords": ["automatic renewal", "auto-renew", "renewal", "lease extension", "renew without notice", "renew without consent"],
+      "violation_examples": [
+        "automatic renewal",
+        "lease renews automatically",
+        "renewal without consent",
+        "renewal without notice"
+      ]
+    },
+    {
+      "id": "habitability",
+      "title": "Warranty of Habitability",
+      "text": "Landlords must maintain rental units in habitable condition, including working heat, plumbing, electricity, and compliance with all housing codes. Tenants may withhold rent or 'repair and deduct' if landlords fail to make necessary repairs. Landlords cannot shift repair responsibilities to tenants for essential systems.",
+      "keywords": ["habitability", "repairs", "maintenance", "heat", "plumbing", "electricity", "housing code", "tenant responsible for repairs", "repair and deduct"],
+      "violation_examples": [
+        "tenant responsible for all repairs",
+        "tenant pays for landlord repairs",
+        "no warranty of habitability",
+        "tenant responsible for essential systems"
+      ]
+    },
+    {
+      "id": "retaliatory-eviction",
+      "title": "Protection Against Retaliatory Eviction",
+      "text": "Landlords cannot evict tenants in retaliation for exercising their rights, such as filing complaints about housing code violations, joining tenant organizations, requesting repairs, or organizing with other tenants. Retaliatory evictions are illegal under California law.",
+      "keywords": ["retaliation", "retaliatory", "eviction", "complaint", "repair request", "tenant organization"],
+      "violation_examples": [
+        "eviction for complaints",
+        "termination for requesting repairs",
+        "eviction for organizing"
+      ]
+    }
+  ]
+}
+

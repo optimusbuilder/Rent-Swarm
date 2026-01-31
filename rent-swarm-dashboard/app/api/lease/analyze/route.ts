@@ -1,22 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
+import { getAllLegalSections } from '@/lib/rag/legal-references';
+import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
 
 // Set max duration for this route (handles large PDFs)
 export const maxDuration = 60;
 // Use Node.js runtime (not edge) for PDF parsing
 export const runtime = 'nodejs';
 
-// Simple rule-based risk detection
+// Enhanced risk detection with RAG
 interface RiskFlag {
   type: string;
   excerpt: string;
   explanation: string;
+  legalReference?: {
+    title: string;
+    text: string;
+    jurisdiction: string;
+  };
+  severity: 'high' | 'warning' | 'info';
 }
 
 interface AnalysisResponse {
   summary: string;
   flags: RiskFlag[];
   disclaimer: string;
+  jurisdiction?: string;
+  extractedText?: string; // The actual extracted PDF text
 }
 
 // Risk detection rules
@@ -38,8 +48,129 @@ const RISK_PATTERNS = [
   },
 ];
 
-function detectRisks(text: string): RiskFlag[] {
+/**
+ * Detect risks using RAG - compares lease text against legal references
+ */
+function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
   const flags: RiskFlag[] = [];
+  const legalSections = getAllLegalSections(jurisdiction);
+  
+  // Chunk the lease text for analysis
+  const chunks = chunkLeaseText(text, 500);
+  const processedSections = new Set<string>(); // Avoid duplicate flags for same legal section
+
+  // Analyze each chunk against legal references
+  for (const chunk of chunks) {
+    // Higher threshold to reduce false positives - only flag clear violations
+    const matches = findRelevantLegalSections(chunk, legalSections, 10); // Threshold of 10 (was 6)
+
+    for (const match of matches) {
+      // Skip if we've already flagged this section
+      if (processedSections.has(match.section.id)) {
+        continue;
+      }
+
+      // Determine severity based on score AND confidence
+      // Be more conservative - only flag high-confidence matches
+      let severity: 'high' | 'warning' | 'info' = 'warning';
+      
+      // Skip low confidence matches entirely - too sensitive otherwise
+      if (match.confidence === 'low') {
+        continue;
+      }
+      
+      // Only include medium confidence if excerpt is clearly relevant
+      if (match.confidence === 'medium' && !match.excerptRelevant) {
+        continue;
+      }
+      
+      // Set severity based on score for high/medium confidence matches
+      if (match.confidence === 'high') {
+        severity = match.score >= 18 ? 'high' : 'warning'; // Higher bar for 'high' severity
+      } else if (match.confidence === 'medium') {
+        severity = 'warning'; // Medium confidence = warning level
+      }
+
+      // Extract a good excerpt from the chunk
+      const excerpt = match.matchedText.length > 300 
+        ? match.matchedText.substring(0, 300) + '...'
+        : match.matchedText;
+
+      // Build context-aware explanation
+      let explanation = '';
+      
+      // Special handling for security deposit - be precise about actual violations
+      if (match.section.id === 'security-deposit') {
+        // Check if the excerpt mentions specific issues
+        const excerptLower = excerpt.toLowerCase();
+        const mentionsAmount = excerptLower.includes('exceeds') || excerptLower.includes('one month') || 
+                              excerptLower.includes('more than');
+        const mentionsDiscretion = excerptLower.includes('discretion') || excerptLower.includes('withhold') ||
+                                   excerptLower.includes('administrative');
+        const mentionsMissingDisclosures = !excerptLower.includes('itemized') && !excerptLower.includes('escrow');
+        
+        if (mentionsAmount) {
+          explanation = `The lease requires a security deposit that exceeds one month's rent. ${match.section.text} Language allowing withholding at the landlord's discretion for broad categories may conflict with tenant protection rules.`;
+        } else if (mentionsDiscretion) {
+          explanation = `The lease allows withholding of the security deposit at the landlord's discretion for broad categories such as "administrative costs" or "other expenses." ${match.section.text} This may conflict with requirements for itemized deductions and tenant protection rules.`;
+        } else {
+          explanation = `${match.section.text} This clause may conflict with security deposit requirements including limits on withholding, mandatory itemized deductions, and required disclosures.`;
+        }
+      } else if (match.section.id === 'habitability') {
+        // Softer, more interpretive language for habitability
+        explanation = `While tenants may be responsible for routine maintenance, landlords cannot shift responsibility for essential habitability conditions such as heat, plumbing, and code compliance. ${match.section.text}`;
+      } else {
+        // Standard explanation format
+        explanation = `${match.section.text} This clause may violate: ${match.section.title}.`;
+      }
+
+      flags.push({
+        type: match.section.id,
+        excerpt,
+        explanation,
+        legalReference: {
+          title: match.section.title,
+          text: match.section.text,
+          // Use the actual jurisdiction from the matched legal section, not the overall detected jurisdiction
+          jurisdiction: match.sectionJurisdiction || jurisdiction || 'Washington, DC',
+        },
+        severity,
+      });
+
+      processedSections.add(match.section.id);
+    }
+  }
+
+  // Also run simple pattern matching as fallback
+  const simpleFlags = detectRisksSimple(text);
+  
+  // Merge flags, avoiding duplicates
+  for (const simpleFlag of simpleFlags) {
+    const alreadyExists = flags.some(f => 
+      f.excerpt.toLowerCase().includes(simpleFlag.excerpt.toLowerCase().substring(0, 50))
+    );
+    if (!alreadyExists) {
+      // Determine severity for simple flags
+      let severity: 'high' | 'warning' | 'info' = 'warning';
+      if (simpleFlag.type === 'illegal_entry' || simpleFlag.type === 'deposit_risk') {
+        severity = 'high';
+      }
+      
+      flags.push({
+        ...simpleFlag,
+        severity,
+      });
+    }
+  }
+
+  return flags;
+}
+
+/**
+ * Simple pattern-based risk detection (fallback)
+ */
+function detectRisksSimple(text: string): Omit<RiskFlag, 'severity' | 'legalReference'>[] {
+  const flags: Omit<RiskFlag, 'severity' | 'legalReference'>[] = [];
   const lines = text.split('\n');
 
   // Check each risk pattern
@@ -127,16 +258,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Detect risks using simple rules
-    const flags = detectRisks(pdfText);
+    // Detect risks using RAG (Retrieval-Augmented Generation)
+    // Get jurisdiction from query params or form data (defaults to DC)
+    const jurisdictionParam = formData.get('jurisdiction') as string | null;
+    let jurisdiction = jurisdictionParam ? String(jurisdictionParam) : 'Washington, DC';
+    
+    // Try to auto-detect jurisdiction from lease text if not provided
+    // Always return in "City, State" format when possible
+    if (!jurisdictionParam) {
+      const textLower = pdfText.toLowerCase();
+      
+      // City-specific detection (more specific first) - already in "City, State" format
+      if (textLower.includes('austin')) {
+        jurisdiction = 'Austin, Texas';
+      } else if (textLower.includes('chicago')) {
+        jurisdiction = 'Chicago, Illinois';
+      } else if (textLower.includes('seattle')) {
+        jurisdiction = 'Seattle, Washington';
+      } else if (textLower.includes('boston')) {
+        jurisdiction = 'Boston, Massachusetts';
+      } else if (textLower.includes('nyc') || textLower.includes('new york city') || textLower.includes('manhattan') || textLower.includes('brooklyn') || textLower.includes('queens') || textLower.includes('bronx')) {
+        jurisdiction = 'New York City, New York';
+      } else if (textLower.includes('san francisco')) {
+        jurisdiction = 'San Francisco, California';
+      } else if (textLower.includes('los angeles')) {
+        jurisdiction = 'Los Angeles, California';
+      } else if (textLower.includes('san diego')) {
+        jurisdiction = 'San Diego, California';
+      } else if (textLower.includes('washington') && (textLower.includes(' dc ') || textLower.includes('district of columbia'))) {
+        jurisdiction = 'Washington, DC';
+      } else if (textLower.includes('new york') || textLower.includes(' ny ')) {
+        // Default to NYC if just "New York" is mentioned
+        jurisdiction = 'New York City, New York';
+      } else if (textLower.includes('california') || textLower.includes(' ca ')) {
+        // Default to San Francisco for California if no city specified
+        jurisdiction = 'San Francisco, California';
+      } else if (textLower.includes('texas') || textLower.includes(' tx ')) {
+        // Default to Austin for Texas if no city specified
+        jurisdiction = 'Austin, Texas';
+      } else if (textLower.includes('illinois') || textLower.includes(' il ')) {
+        jurisdiction = 'Chicago, Illinois';
+      } else if (textLower.includes('massachusetts') || textLower.includes(' ma ')) {
+        jurisdiction = 'Boston, Massachusetts';
+      } else if (textLower.includes('washington') && textLower.includes('wa ')) {
+        // Washington state (not DC)
+        jurisdiction = 'Seattle, Washington';
+      }
+    }
+    
+    const flags = detectRisksWithRAG(pdfText, jurisdiction);
 
     // Build response
+    const highRiskCount = flags.filter(f => f.severity === 'high').length;
+    const warningCount = flags.filter(f => f.severity === 'warning').length;
+
+    let summary = 'No obvious risky clauses detected.';
+    if (highRiskCount > 0) {
+      summary = `This lease contains ${highRiskCount} high-risk clause${highRiskCount > 1 ? 's' : ''} that may violate tenant protection laws.`;
+    } else if (warningCount > 0) {
+      summary = `This lease contains ${warningCount} clause${warningCount > 1 ? 's' : ''} that may be problematic for tenants.`;
+    }
+
     const response: AnalysisResponse = {
-      summary: flags.length > 0
-        ? 'This lease contains clauses that may be risky for tenants.'
-        : 'No obvious risky clauses detected using basic pattern matching.',
+      summary,
       flags,
       disclaimer: 'This analysis is for informational purposes only and does not constitute legal advice. Consult with a qualified attorney for legal guidance.',
+      jurisdiction,
+      extractedText: pdfText, // Include the extracted text for display
     };
 
     return NextResponse.json(response);

@@ -4,18 +4,29 @@ import { useState, useRef } from "react";
 import { Scale, Upload, FileText, AlertTriangle, AlertCircle, CheckCircle, Loader2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+interface LegalReference {
+  title: string;
+  text: string;
+  jurisdiction: string;
+}
 
 interface RiskFlag {
   type: string;
   excerpt: string;
   explanation: string;
+  legalReference?: LegalReference;
+  severity?: 'high' | 'warning' | 'info';
 }
 
 interface AnalysisResult {
   summary: string;
   flags: RiskFlag[];
   disclaimer: string;
+  jurisdiction?: string;
+  extractedText?: string;
 }
 
 function getSeverityStyles(severity: string) {
@@ -47,9 +58,22 @@ function getSeverityStyles(severity: string) {
   }
 }
 
+const JURISDICTIONS = [
+  { value: 'auto', label: 'Auto-detect from lease' },
+  { value: 'Washington, DC', label: 'Washington, DC' },
+  { value: 'San Francisco, California', label: 'San Francisco, California' },
+  { value: 'Los Angeles, California', label: 'Los Angeles, California' },
+  { value: 'New York City, New York', label: 'New York City, New York' },
+  { value: 'Austin, Texas', label: 'Austin, Texas' },
+  { value: 'Chicago, Illinois', label: 'Chicago, Illinois' },
+  { value: 'Seattle, Washington', label: 'Seattle, Washington' },
+  { value: 'Boston, Massachusetts', label: 'Boston, Massachusetts' },
+];
+
 export default function LawyerPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('auto');
   const [fileName, setFileName] = useState<string | null>(null);
   const [leaseText, setLeaseText] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
@@ -71,6 +95,11 @@ export default function LawyerPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      
+      // Add jurisdiction if manually selected (skip if 'auto')
+      if (selectedJurisdiction && selectedJurisdiction !== 'auto') {
+        formData.append("jurisdiction", selectedJurisdiction);
+      }
 
       const response = await fetch("/api/lease/analyze", {
         method: "POST",
@@ -85,9 +114,8 @@ export default function LawyerPage() {
       const result: AnalysisResult = await response.json();
       setAnalysis(result);
       
-      // For now, we don't have the extracted text in the response
-      // So we'll just show the analysis
-      setLeaseText("PDF content extracted and analyzed.");
+      // Display the extracted PDF text
+      setLeaseText(result.extractedText || "PDF content extracted and analyzed.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setFileName(null);
@@ -117,6 +145,7 @@ export default function LawyerPage() {
     setLeaseText(null);
     setAnalysis(null);
     setError(null);
+    setSelectedJurisdiction('auto');
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -126,13 +155,34 @@ export default function LawyerPage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-border bg-background px-6 py-4">
-        <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-primary" />
-          <h1 className="font-mono text-lg font-bold">THE LAWYER</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" />
+              <h1 className="font-mono text-lg font-bold">THE LAWYER</h1>
+            </div>
+            <p className="mt-1 font-mono text-sm text-muted-foreground">
+              AI-Powered Lease Analysis & Risk Detection
+            </p>
+          </div>
+          {!fileName && (
+            <div className="flex items-center gap-2">
+              <label className="font-mono text-xs text-muted-foreground">Jurisdiction:</label>
+              <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
+                <SelectTrigger className="w-[200px] font-mono text-xs">
+                  <SelectValue placeholder="Auto-detect" />
+                </SelectTrigger>
+                <SelectContent>
+                  {JURISDICTIONS.map((jur) => (
+                    <SelectItem key={jur.value} value={jur.value}>
+                      {jur.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-        <p className="mt-1 font-mono text-sm text-muted-foreground">
-          AI-Powered Lease Analysis & Risk Detection
-        </p>
       </header>
 
       {fileName && analysis ? (
@@ -157,30 +207,46 @@ export default function LawyerPage() {
             </div>
             <Card className="border-border bg-card">
               <CardContent className="p-6">
-                <p className="font-mono text-sm leading-relaxed text-foreground/90">
+                {analysis.jurisdiction && (
+                  <div className="mb-4 rounded-md bg-muted/50 px-3 py-2">
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Analyzing under: <span className="font-bold text-foreground">{analysis.jurisdiction}</span>
+                    </p>
+                  </div>
+                )}
+                <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
                   {leaseText || "PDF content extracted and analyzed."}
-                </p>
+                </pre>
               </CardContent>
             </Card>
           </div>
 
           {/* Right: Risk Alerts */}
           <div className="w-[480px] overflow-auto bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-mono text-sm font-bold text-foreground">
-                  RISK ANALYSIS
-                </h2>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {analysis.flags.length} {analysis.flags.length === 1 ? "issue" : "issues"} detected
-                </p>
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="font-mono text-sm font-bold text-foreground">
+                    RISK ANALYSIS
+                  </h2>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {analysis.flags.length} {analysis.flags.length === 1 ? "issue" : "issues"} detected
+                  </p>
+                </div>
               </div>
+              {analysis.jurisdiction && (
+                <div className="rounded-md bg-muted/50 px-3 py-1.5">
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Analyzing under: <span className="font-bold text-foreground">{analysis.jurisdiction}</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             {analysis.flags.length > 0 ? (
               <div className="space-y-4">
                 {analysis.flags.map((flag, index) => {
-                  const severity = flag.type === "illegal_entry" || flag.type === "deposit_risk" ? "high" : "warning";
+                  const severity = flag.severity || (flag.type === "illegal_entry" || flag.type === "deposit_risk" ? "high" : "warning");
                   const styles = getSeverityStyles(severity);
                   const Icon = styles.icon;
                   return (
@@ -193,17 +259,22 @@ export default function LawyerPage() {
                           <div className="flex items-center gap-2">
                             <Icon className={cn("h-5 w-5", styles.iconColor)} />
                             <CardTitle className="font-mono text-sm text-foreground capitalize">
-                              {flag.type.replace(/_/g, " ")}
+                              {flag.legalReference?.title || flag.type.replace(/_/g, " ")}
                             </CardTitle>
                           </div>
                           <Badge className={cn("font-mono text-[10px]", styles.badge)}>
                             {styles.label}
                           </Badge>
                         </div>
+                        {flag.legalReference && (
+                          <p className="font-mono text-xs text-muted-foreground mt-1">
+                            {flag.legalReference.jurisdiction}
+                          </p>
+                        )}
                       </CardHeader>
                       <CardContent className="space-y-3 pb-4">
                         <div className="rounded-md bg-background/50 p-3">
-                          <p className="font-mono text-xs text-muted-foreground mb-2">EXCERPT:</p>
+                          <p className="font-mono text-xs text-muted-foreground mb-2">LEASE EXCERPT:</p>
                           <p className="text-sm text-foreground/80 italic">
                             "{flag.excerpt}"
                           </p>
@@ -211,6 +282,16 @@ export default function LawyerPage() {
                         <p className="text-sm text-foreground/80">
                           {flag.explanation}
                         </p>
+                        {flag.legalReference && (
+                          <div className="rounded-md bg-primary/5 border border-primary/20 p-3 mt-3">
+                            <p className="font-mono text-xs text-primary mb-2 font-bold">
+                              LEGAL REFERENCE:
+                            </p>
+                            <p className="text-xs text-foreground/90">
+                              {flag.legalReference.text}
+                            </p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );
