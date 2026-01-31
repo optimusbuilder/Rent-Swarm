@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -29,7 +29,7 @@ import Link from "next/link";
 const mockListings = [
   {
     id: 1,
-    image: "/placeholder.svg?height=200&width=300",
+    image: "/house-placeholder.jpg",
     price: 2450,
     address: "1847 Market St, Apt 4B",
     city: "San Francisco, CA",
@@ -41,7 +41,7 @@ const mockListings = [
   },
   {
     id: 2,
-    image: "/placeholder.svg?height=200&width=300",
+    image: "/house-placeholder.jpg",
     price: 1850,
     address: "523 Valencia St, Unit 2",
     city: "San Francisco, CA",
@@ -49,54 +49,6 @@ const mockListings = [
     baths: 1,
     sqft: 620,
     scamScore: 78,
-    verified: false,
-  },
-  {
-    id: 3,
-    image: "/placeholder.svg?height=200&width=300",
-    price: 3200,
-    address: "2100 Pine St, #301",
-    city: "San Francisco, CA",
-    beds: 3,
-    baths: 2,
-    sqft: 1200,
-    scamScore: 5,
-    verified: true,
-  },
-  {
-    id: 4,
-    image: "/placeholder.svg?height=200&width=300",
-    price: 1650,
-    address: "891 Folsom St, Apt 12",
-    city: "San Francisco, CA",
-    beds: 1,
-    baths: 1,
-    sqft: 480,
-    scamScore: 45,
-    verified: false,
-  },
-  {
-    id: 5,
-    image: "/placeholder.svg?height=200&width=300",
-    price: 2800,
-    address: "1425 Bush St, Unit 5A",
-    city: "San Francisco, CA",
-    beds: 2,
-    baths: 2,
-    sqft: 980,
-    scamScore: 8,
-    verified: true,
-  },
-  {
-    id: 6,
-    image: "/placeholder.svg?height=200&width=300",
-    price: 4500,
-    address: "2850 Broadway, PH",
-    city: "San Francisco, CA",
-    beds: 4,
-    baths: 3,
-    sqft: 2100,
-    scamScore: 92,
     verified: false,
   },
 ];
@@ -107,38 +59,93 @@ function getScamScoreColor(score: number) {
   return "bg-status-danger text-foreground";
 }
 
-function getScamScoreLabel(score: number) {
-  if (score <= 20) return "Low Risk";
-  if (score <= 50) return "Medium Risk";
-  return "High Risk";
-}
-
 export default function ScoutPage() {
   const [searchCity, setSearchCity] = useState("San Francisco, CA");
   const [maxBudget, setMaxBudget] = useState("3000");
   const [minBudget, setMinBudget] = useState("1500");
   const [bedrooms, setBedrooms] = useState("any");
-  const [isScanning, setIsScanning] = useState(false);
+  const [isScanning, setIsScanning] = useState(false); // UI loading state
   const [listings, setListings] = useState(mockListings);
-  const [sessionActive, setSessionActive] = useState(false);
-  const [sessionId] = useState("8821");
 
-  const handleDeployScout = () => {
-    setIsScanning(true);
-    setSessionActive(true);
-    setListings([]);
+  // Scout Agent State
+  const [isScouting, setIsScouting] = useState(false);
+  const [liveUrl, setLiveUrl] = useState<string | null>(null);
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-    // Simulate scanning and results appearing
-    setTimeout(() => {
-      setListings(mockListings.slice(0, 2));
-    }, 1500);
-    setTimeout(() => {
-      setListings(mockListings.slice(0, 4));
-    }, 2500);
-    setTimeout(() => {
-      setListings(mockListings);
+  const handleDeployScout = async () => {
+    setIsScouting(true);
+    setIsScanning(true); // Show local scanning UI too
+    setLogs([]);
+    setLiveUrl(null);
+    setScreenshot(null);
+    setSessionId(null);
+
+    try {
+      const response = await fetch('/api/scout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          city: searchCity,
+          price: Number(maxBudget),
+          beds: bedrooms === "any" ? 2 : Number(bedrooms)
+        }),
+      });
+
+      if (!response.body) return;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value);
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'init') {
+              setLiveUrl(data.liveUrl);
+              setSessionId(data.sessionId);
+              setLogs(prev => [...prev, `Session Started: ${data.sessionId}`]);
+            } else if (data.type === 'log') {
+              setLogs(prev => [...prev, data.message]);
+            } else if (data.type === 'error') {
+              setLogs(prev => [...prev, `Error: ${data.message}`]);
+            } else if (data.type === 'complete') {
+              setLogs(prev => [...prev, data.message]);
+            } else if (data.type === 'listings') {
+              setLogs(prev => [...prev, `Received ${data.data.length} listings from agent`]);
+              // 1. Sort by Scam Score (Green -> Red)
+              // 2. Use real images if available (Gemini/Puppeteer now provides them)
+              const sorted = data.data.sort((a: any, b: any) => a.scamScore - b.scamScore);
+
+              setListings(sorted.map((l: any) => ({
+                ...l,
+                // Use the custom house placeholder since we aren't scraping images
+                image: l.image && l.image.length > 5 ? l.image : "/house-placeholder.jpg",
+              })));
+            } else if (data.type === 'screenshot') {
+              setScreenshot(data.data);
+            }
+          } catch (e) {
+            console.error("Error parsing stream:", e);
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error("Scouting failed:", error);
+      setLogs(prev => [...prev, "Failed to start scouting agent."]);
+    } finally {
       setIsScanning(false);
-    }, 3500);
+      // We keep isScouting true to show the results/logs
+    }
   };
 
   return (
@@ -263,7 +270,7 @@ export default function ScoutPage() {
                 SCANNING LISTINGS...
               </p>
               <p className="mt-2 font-mono text-xs text-muted-foreground">
-                Searching Zillow, Apartments.com, Craigslist...
+                Searching Craigslist...
               </p>
             </div>
           ) : listings.length === 0 ? (
@@ -286,11 +293,21 @@ export default function ScoutPage() {
                   <div className="flex">
                     {/* Thumbnail */}
                     <div className="relative h-28 w-36 shrink-0 overflow-hidden bg-secondary">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="font-mono text-[10px] text-muted-foreground">
-                          [IMG]
+                      {listing.image ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={listing.image}
+                          alt="Listing"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="font-mono text-[10px] text-muted-foreground">
+                            [IMG]
+                          </div>
                         </div>
-                      </div>
+                      )}
+
                       {listing.verified && (
                         <div className="absolute left-1 top-1">
                           <Badge className="bg-status-success/90 font-mono text-[10px] px-1 py-0 text-background">
@@ -305,21 +322,25 @@ export default function ScoutPage() {
                     <CardContent className="flex flex-1 flex-col justify-between p-3">
                       <div>
                         <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-baseline gap-1">
-                              <span className="font-mono text-lg font-bold text-foreground">
-                                ${listing.price.toLocaleString()}
-                              </span>
-                              <span className="font-mono text-xs text-muted-foreground">
-                                /mo
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium text-foreground">
-                              {listing.address}
-                            </p>
+                          <div className="flex-1 min-w-0 pr-2">
+                            {/* Make title clickable */}
+                            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+                            <a href={(listing as any).link || '#'} target="_blank" rel="noreferrer" className="group-hover:underline">
+                              <div className="flex items-baseline gap-1">
+                                <span className="font-mono text-lg font-bold text-foreground">
+                                  ${listing.price.toLocaleString()}
+                                </span>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  /mo
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {listing.address}
+                              </p>
+                            </a>
                           </div>
                           <Badge
-                            className={`font-mono text-[10px] ${getScamScoreColor(listing.scamScore)}`}
+                            className={`font-mono text-[10px] ${getScamScoreColor(listing.scamScore)} shrink-0`}
                           >
                             <AlertTriangle className="mr-0.5 h-2.5 w-2.5" />
                             {listing.scamScore}%
@@ -328,7 +349,7 @@ export default function ScoutPage() {
                         <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
                           <span>{listing.beds} bed</span>
                           <span>{listing.baths} bath</span>
-                          <span>{listing.sqft.toLocaleString()} sqft</span>
+                          <span>{(listing.sqft || 0).toLocaleString()} sqft</span>
                         </div>
                       </div>
 
@@ -372,17 +393,17 @@ export default function ScoutPage() {
           <div className="flex items-center gap-3">
             <span className="relative flex h-2.5 w-2.5">
               <span
-                className={`absolute inline-flex h-full w-full rounded-full ${sessionActive ? "bg-status-danger animate-ping opacity-75" : "bg-muted-foreground"}`}
+                className={`absolute inline-flex h-full w-full rounded-full ${isScanning || isScouting ? "bg-status-danger animate-ping opacity-75" : "bg-muted-foreground"}`}
               />
               <span
-                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${sessionActive ? "bg-status-danger" : "bg-muted-foreground"}`}
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${isScanning || isScouting ? "bg-status-danger" : "bg-muted-foreground"}`}
               />
             </span>
             <span className="font-mono text-sm font-bold tracking-tight text-foreground">
               LIVE AGENT VIEW
             </span>
             <span className="font-mono text-xs text-muted-foreground">
-              [Session ID: #{sessionId}]
+              {sessionId ? `[Session ID: #${sessionId.slice(0, 8)}]` : "[OFFLINE]"}
             </span>
             <Monitor className="ml-auto h-4 w-4 text-muted-foreground" />
           </div>
@@ -417,13 +438,41 @@ export default function ScoutPage() {
           </div>
 
           {/* Iframe or Placeholder */}
-          {sessionActive ? (
-            <iframe
-              src="about:blank"
-              className="h-full w-full border-0"
-              title="Browserbase Live Session"
-              sandbox="allow-same-origin allow-scripts"
-            />
+          {isScouting ? (
+            <div className="flex flex-col h-full z-40 relative">
+              {screenshot ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={`data:image/png;base64,${screenshot}`}
+                  alt="Live Agent View"
+                  className="flex-1 w-full object-contain bg-black"
+                />
+              ) : liveUrl ? (
+                <iframe
+                  src={liveUrl}
+                  className="flex-1 w-full border-0"
+                  allow="clipboard-read; clipboard-write"
+                  title="Live Agent View"
+                />
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center border-b border-white/10">
+                  <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <p className="mt-4 font-mono text-sm text-primary">CONNECTING TO AGENT...</p>
+                </div>
+              )}
+
+              {/* Logs Console */}
+              <div className="h-48 shrink-0 overflow-y-auto bg-black p-4 font-mono text-[10px] text-green-400 border-t border-white/10 z-40">
+                <div className="mb-2 text-white/50 border-b border-white/10 pb-1">AGENT LOGS</div>
+                {logs.length === 0 && <span className="opacity-50">Waiting for logs...</span>}
+                {logs.map((log, i) => (
+                  <div key={i} className="mb-1 break-all">
+                    <span className="mr-2 text-white/30">{new Date().toLocaleTimeString()}</span>
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center">
               <div className="relative">
