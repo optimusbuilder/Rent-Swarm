@@ -83,7 +83,7 @@ export default function NegotiatePage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b border-border bg-background px-6 py-4">
+      <header className="border-b border-border bg-background px-4 md:px-6 py-4">
         <div className="flex items-center gap-2">
           <BadgeDollarSign className="h-5 w-5 text-primary" />
           <h1 className="font-mono text-lg font-bold">THE HAGGLER</h1>
@@ -93,12 +93,12 @@ export default function NegotiatePage() {
         </p>
       </header>
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column: Apartment Summary + Metrics */}
           <div className="space-y-6">
             {/* Apartment Summary Card */}
-            <Card className="border-border bg-card">
+            <Card className="border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 font-mono text-sm">
                   <Home className="h-4 w-4 text-primary" />
@@ -154,7 +154,7 @@ export default function NegotiatePage() {
             </Card>
 
             {/* Metrics Dashboard */}
-            <Card className="border-border bg-card">
+            <Card className="border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 font-mono text-sm">
                   <TrendingDown className="h-4 w-4 text-status-success" />
@@ -163,7 +163,7 @@ export default function NegotiatePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Projected Monthly Savings */}
-                <div className="rounded-lg bg-status-success/10 p-4">
+                <div className="rounded-lg bg-status-success/10 p-4 hover:bg-status-success/15 transition-colors duration-200">
                   <p className="font-mono text-xs text-muted-foreground">
                     PROJECTED MONTHLY SAVINGS
                   </p>
@@ -224,7 +224,7 @@ export default function NegotiatePage() {
 
           {/* Right Column: Email Editor */}
           <div className="lg:col-span-2">
-            <Card className="h-full border-border bg-card">
+            <Card className="h-full border-border bg-card hover:shadow-lg transition-shadow duration-300">
               <CardHeader className="border-b border-border pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 font-mono text-sm">
@@ -258,7 +258,7 @@ export default function NegotiatePage() {
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
-                    className="font-mono text-xs"
+                    className="font-mono text-xs transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                     onClick={handleCopy}
                   >
                     {copied ? (
@@ -273,7 +273,7 @@ export default function NegotiatePage() {
                       </>
                     )}
                   </Button>
-                  <Button className="font-mono text-xs">
+                  <Button className="font-mono text-xs transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
                     <Send className="mr-2 h-4 w-4" />
                     SEND EMAIL
                   </Button>

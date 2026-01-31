@@ -154,7 +154,7 @@ export default function LawyerPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b border-border bg-background px-6 py-4">
+      <header className="border-b border-border bg-background px-4 md:px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -187,9 +187,9 @@ export default function LawyerPage() {
 
       {fileName && analysis ? (
         /* Split View */
-        <div className="flex h-[calc(100vh-89px)]">
+        <div className="flex flex-col lg:flex-row h-[calc(100vh-89px)]">
           {/* Left: PDF Text */}
-          <div className="flex-1 overflow-auto border-r border-border p-6">
+          <div className="flex-1 overflow-auto border-r border-border p-6 animate-in slide-in-from-left duration-500">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
@@ -215,7 +215,7 @@ export default function LawyerPage() {
           </div>
 
           {/* Right: Risk Alerts */}
-          <div className="w-[480px] overflow-auto bg-card p-6">
+          <div className="w-full lg:w-[480px] overflow-auto bg-card p-6 border-t lg:border-t-0 border-border animate-in slide-in-from-right duration-500">
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <div>
@@ -238,7 +238,7 @@ export default function LawyerPage() {
                   return (
                     <Card
                       key={index}
-                      className={cn("border transition-all hover:shadow-md", styles.bg)}
+                      className={cn("border transition-all hover:shadow-lg hover:-translate-y-1 duration-200", styles.bg)}
                     >
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">
@@ -316,8 +316,8 @@ export default function LawyerPage() {
             className={cn(
               "flex h-80 w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all duration-300",
               isDragging
-                ? "border-primary bg-primary/5"
-                : "border-border bg-card hover:border-primary/50 hover:bg-card/80",
+                ? "border-primary bg-primary/5 scale-105 shadow-lg shadow-primary/20"
+                : "border-border bg-card hover:border-primary/50 hover:bg-card/80 hover:scale-[1.02]",
               isUploading && "pointer-events-none opacity-50"
             )}
             onClick={() => fileInputRef.current?.click()}
@@ -331,8 +331,8 @@ export default function LawyerPage() {
             />
             <div
               className={cn(
-                "mb-4 flex h-16 w-16 items-center justify-center rounded-full transition-colors",
-                isDragging ? "bg-primary/20" : "bg-secondary"
+                "mb-4 flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300",
+                isDragging ? "bg-primary/20 scale-110 rotate-12" : "bg-secondary hover:scale-110"
               )}
             >
               {isUploading ? (

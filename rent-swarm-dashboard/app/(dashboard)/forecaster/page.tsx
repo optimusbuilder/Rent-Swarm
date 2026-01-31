@@ -84,7 +84,7 @@ export default function ForecasterPage() {
   const feesPercent = (remcResult.fees / totalRemc) * 100;
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-4 md:p-6">
       {/* Header */}
       <header className="mb-6 flex items-center gap-3">
         <TrendingUp className="h-6 w-6 text-primary" />
@@ -118,7 +118,7 @@ export default function ForecasterPage() {
       )}
 
       {/* Hero Section - The "Truth" Reveal */}
-      <Card className="mb-6 overflow-hidden border-border bg-card">
+      <Card className="mb-6 overflow-hidden border-border bg-card hover:shadow-lg transition-shadow duration-300">
         <CardContent className="p-0">
           <div className="flex items-stretch">
             {/* Advertised Rent */}
@@ -136,8 +136,8 @@ export default function ForecasterPage() {
 
             {/* Arrow */}
             <div className="flex items-center justify-center bg-gradient-to-r from-secondary/50 to-status-warning/10 px-6">
-              <div className="flex flex-col items-center gap-2">
-                <ArrowRight className="h-8 w-8 text-status-warning" />
+              <div className="flex flex-col items-center gap-2 animate-pulse">
+                <ArrowRight className="h-8 w-8 text-status-warning animate-bounce" />
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   Reality
                 </span>
@@ -283,7 +283,7 @@ export default function ForecasterPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Commute Calculator */}
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 font-mono text-sm">
               <Car className="h-4 w-4 text-primary" />
@@ -361,7 +361,7 @@ export default function ForecasterPage() {
               </div>
             </div>
 
-            <Button className="mt-4 w-full font-mono text-sm" disabled={!destination}>
+            <Button className="mt-4 w-full font-mono text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50" disabled={!destination}>
               <MapPin className="mr-2 h-4 w-4" />
               CALCULATE ROUTE
             </Button>
@@ -369,7 +369,7 @@ export default function ForecasterPage() {
         </Card>
 
         {/* Hidden Fee Detector */}
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 font-mono text-sm">
               <TriangleAlert className="h-4 w-4 text-status-warning" />
@@ -385,7 +385,7 @@ export default function ForecasterPage() {
                 return (
                   <div
                     key={fee.name}
-                    className="flex items-center justify-between rounded-lg border border-status-warning/20 bg-status-warning/5 p-4"
+                    className="flex items-center justify-between rounded-lg border border-status-warning/20 bg-status-warning/5 p-4 hover:bg-status-warning/10 transition-all duration-200 hover:scale-[1.02]"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning/10">
