@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   TrendingUp,
   ArrowRight,
@@ -17,35 +18,70 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-// Dummy data
-const costBreakdown = {
-  rent: 2000,
-  utilities: 150,
-  commute: 100,
-  fees: 50,
-};
-
-const hiddenFees = [
-  { name: "Trash Valet", amount: 25, icon: Trash2 },
-  { name: "Package Locker", amount: 10, icon: Package },
-  { name: "Admin Fee", amount: 15, icon: FileText },
-];
-
-const totalRemc =
-  costBreakdown.rent +
-  costBreakdown.utilities +
-  costBreakdown.commute +
-  costBreakdown.fees;
+import type { RentalListing, REMCData, REMCResult } from "@/lib/types/rental";
+import { initializeREMCData, calculateREMC } from "@/lib/utils/remc-calculator";
+import { formatCurrency } from "@/lib/utils/format";
+import { AffordabilityCard } from "@/components/forecaster/affordability-card";
+import { UtilityEstimatorCard } from "@/components/forecaster/utility-estimator-card";
 
 export default function ForecasterPage() {
+  const searchParams = useSearchParams();
+  const [remcData, setRemcData] = useState<REMCData | null>(null);
+  const [remcResult, setRemcResult] = useState<REMCResult | null>(null);
   const [destination, setDestination] = useState("");
 
+  // Initialize data from URL parameters or default
+  useEffect(() => {
+    const listingId = searchParams.get('listingId');
+
+    if (listingId) {
+      // Parse URL params into RentalListing
+      const listing: RentalListing = {
+        id: listingId,
+        price: Number(searchParams.get('price')) || 2000,
+        address: searchParams.get('address') || '',
+        city: searchParams.get('city') || '',
+        beds: Number(searchParams.get('beds')) || 2,
+        baths: Number(searchParams.get('baths')) || 1,
+        sqft: Number(searchParams.get('sqft')) || 850,
+      };
+
+      // Initialize with estimated costs
+      const initialData = initializeREMCData(listing);
+      setRemcData(initialData);
+      setRemcResult(calculateREMC(initialData));
+    } else {
+      // Default data if no URL params
+      const defaultListing: RentalListing = {
+        id: 'default',
+        price: 2000,
+        address: '1847 Market St, Apt 4B',
+        city: 'San Francisco, CA',
+        beds: 2,
+        baths: 1,
+        sqft: 850,
+      };
+
+      const initialData = initializeREMCData(defaultListing);
+      setRemcData(initialData);
+      setRemcResult(calculateREMC(initialData));
+    }
+  }, [searchParams]);
+
+  if (!remcData || !remcResult) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="font-mono text-sm text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   // Calculate percentages for the stacked bar
-  const rentPercent = (costBreakdown.rent / totalRemc) * 100;
-  const utilitiesPercent = (costBreakdown.utilities / totalRemc) * 100;
-  const commutePercent = (costBreakdown.commute / totalRemc) * 100;
-  const feesPercent = (costBreakdown.fees / totalRemc) * 100;
+  const totalRemc = remcResult.total;
+  const rentPercent = (remcResult.baseRent / totalRemc) * 100;
+  const utilitiesPercent = (remcResult.utilities / totalRemc) * 100;
+  const commutePercent = (remcResult.commute / totalRemc) * 100;
+  const feesPercent = (remcResult.fees / totalRemc) * 100;
 
   return (
     <div className="min-h-screen p-6">
@@ -62,6 +98,25 @@ export default function ForecasterPage() {
         </div>
       </header>
 
+      {/* Property Info Badge */}
+      {remcData.listing.address && (
+        <div className="mb-6 rounded-lg border border-border bg-secondary/50 p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-1">
+                Analyzing Property
+              </p>
+              <p className="font-mono text-sm font-medium text-foreground">
+                {remcData.listing.address}
+              </p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {remcData.listing.city} • {remcData.listing.beds} bed / {remcData.listing.baths} bath • {remcData.listing.sqft.toLocaleString()} sqft
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section - The "Truth" Reveal */}
       <Card className="mb-6 overflow-hidden border-border bg-card">
         <CardContent className="p-0">
@@ -72,7 +127,7 @@ export default function ForecasterPage() {
                 Advertised Rent
               </p>
               <p className="font-mono text-5xl font-bold text-muted-foreground">
-                $2,000
+                {formatCurrency(remcResult.baseRent)}
               </p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">
                 /month
@@ -95,13 +150,13 @@ export default function ForecasterPage() {
                 Real Monthly Cost
               </p>
               <p className="font-mono text-5xl font-bold text-status-warning">
-                ${totalRemc.toLocaleString()}
+                {formatCurrency(totalRemc)}
               </p>
               <p className="mt-1 font-mono text-xs text-status-warning/80">
                 /month (REMC)
               </p>
               <Badge className="mt-3 bg-status-danger/20 text-status-danger font-mono text-xs">
-                +${(totalRemc - costBreakdown.rent).toLocaleString()} hidden
+                +{formatCurrency(remcResult.hiddenCostTotal)} hidden
               </Badge>
             </div>
           </div>
@@ -148,7 +203,7 @@ export default function ForecasterPage() {
                 style={{ width: `${rentPercent}%` }}
               >
                 <span className="font-mono text-xs font-bold text-background">
-                  ${costBreakdown.rent}
+                  {formatCurrency(remcResult.baseRent)}
                 </span>
               </div>
               <div
@@ -156,7 +211,7 @@ export default function ForecasterPage() {
                 style={{ width: `${utilitiesPercent}%` }}
               >
                 <span className="font-mono text-[10px] font-bold text-background">
-                  ${costBreakdown.utilities}
+                  {formatCurrency(remcResult.utilities)}
                 </span>
               </div>
               <div
@@ -164,7 +219,7 @@ export default function ForecasterPage() {
                 style={{ width: `${commutePercent}%` }}
               >
                 <span className="font-mono text-[10px] font-bold text-background">
-                  ${costBreakdown.commute}
+                  {formatCurrency(remcResult.commute)}
                 </span>
               </div>
               <div
@@ -172,7 +227,7 @@ export default function ForecasterPage() {
                 style={{ width: `${feesPercent}%` }}
               >
                 <span className="font-mono text-[10px] font-bold text-background">
-                  ${costBreakdown.fees}
+                  {formatCurrency(remcResult.fees)}
                 </span>
               </div>
             </div>
@@ -183,30 +238,48 @@ export default function ForecasterPage() {
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-chart-1" />
               <span className="text-muted-foreground">
-                Rent (${costBreakdown.rent})
+                Rent ({formatCurrency(remcResult.baseRent)})
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-chart-2" />
               <span className="text-muted-foreground">
-                Utilities (${costBreakdown.utilities})
+                Utilities ({formatCurrency(remcResult.utilities)})
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-chart-3" />
               <span className="text-muted-foreground">
-                Commute (${costBreakdown.commute})
+                Commute ({formatCurrency(remcResult.commute)})
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-chart-4" />
               <span className="text-muted-foreground">
-                Fees (${costBreakdown.fees})
+                Fees ({formatCurrency(remcResult.fees)})
               </span>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Affordability & Utility Grid */}
+      <div className="grid gap-6 lg:grid-cols-2 mb-6">
+        <AffordabilityCard remc={totalRemc} />
+        <UtilityEstimatorCard
+          utilities={remcData.utilities}
+          propertyInfo={{
+            sqft: remcData.listing.sqft,
+            beds: remcData.listing.beds,
+            city: remcData.listing.city,
+          }}
+          onUpdate={(updatedUtilities) => {
+            const updatedData = { ...remcData, utilities: updatedUtilities };
+            setRemcData(updatedData);
+            setRemcResult(calculateREMC(updatedData));
+          }}
+        />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Commute Calculator */}
@@ -218,10 +291,20 @@ export default function ForecasterPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Input */}
+            {/* Property Address (Origin) */}
             <div className="mb-4">
               <label className="mb-2 block font-mono text-xs text-muted-foreground">
-                Daily Destination
+                From (Property Address)
+              </label>
+              <div className="rounded-lg border border-border bg-secondary/50 p-3 font-mono text-sm text-foreground">
+                {remcData.listing.address || 'No address provided'}
+              </div>
+            </div>
+
+            {/* Destination Input */}
+            <div className="mb-4">
+              <label className="mb-2 block font-mono text-xs text-muted-foreground">
+                To (Daily Destination)
               </label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -264,21 +347,21 @@ export default function ForecasterPage() {
                     Estimated Commute Cost
                   </p>
                   <p className="font-mono text-sm font-medium text-foreground">
-                    15 min drive • 8.2 miles
+                    {remcData.commute.duration > 0 ? `${remcData.commute.duration} min drive • ${remcData.commute.distance} miles` : 'No route calculated yet'}
                   </p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="font-mono text-2xl font-bold text-chart-3">
-                  $5.00
+                  {formatCurrency(remcData.commute.dailyCost)}
                 </p>
                 <p className="font-mono text-xs text-muted-foreground">
-                  /day ($100/mo)
+                  /day ({formatCurrency(remcData.commute.monthlyCost)}/mo)
                 </p>
               </div>
             </div>
 
-            <Button className="mt-4 w-full font-mono text-sm">
+            <Button className="mt-4 w-full font-mono text-sm" disabled={!destination}>
               <MapPin className="mr-2 h-4 w-4" />
               CALCULATE ROUTE
             </Button>
@@ -295,32 +378,37 @@ export default function ForecasterPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {hiddenFees.map((fee) => (
-                <div
-                  key={fee.name}
-                  className="flex items-center justify-between rounded-lg border border-status-warning/20 bg-status-warning/5 p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning/10">
-                      <fee.icon className="h-5 w-5 text-status-warning" />
+              {remcData.fees.items.map((fee) => {
+                const IconComponent = fee.name.includes('Trash') ? Trash2 :
+                                     fee.name.includes('Package') ? Package : FileText;
+
+                return (
+                  <div
+                    key={fee.name}
+                    className="flex items-center justify-between rounded-lg border border-status-warning/20 bg-status-warning/5 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning/10">
+                        <IconComponent className="h-5 w-5 text-status-warning" />
+                      </div>
+                      <div>
+                        <p className="font-mono text-sm font-medium text-foreground">
+                          {fee.name}
+                        </p>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          Monthly surcharge
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-mono text-sm font-medium text-foreground">
-                        {fee.name}
-                      </p>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        Monthly surcharge
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <TriangleAlert className="h-4 w-4 text-status-warning" />
+                      <span className="font-mono text-lg font-bold text-status-warning">
+                        +{formatCurrency(fee.amount)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <TriangleAlert className="h-4 w-4 text-status-warning" />
-                    <span className="font-mono text-lg font-bold text-status-warning">
-                      +${fee.amount}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Total Hidden Fees */}
@@ -332,7 +420,7 @@ export default function ForecasterPage() {
                 </span>
               </div>
               <span className="font-mono text-xl font-bold text-status-danger">
-                +${hiddenFees.reduce((sum, fee) => sum + fee.amount, 0)}/mo
+                +{formatCurrency(remcData.fees.total)}/mo
               </span>
             </div>
 
