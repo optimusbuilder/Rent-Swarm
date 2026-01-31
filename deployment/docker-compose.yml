@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Next.js application
+  nextjs:
+    build:
+      context: ../rent-swarm-dashboard
+      dockerfile: Dockerfile
+    container_name: rent-swarm-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ../rent-swarm-dashboard/.env
+    networks:
+      - rent-swarm-network
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Caddy reverse proxy
+  caddy:
+    image: caddy:2.11-alpine
+    container_name: rent-swarm-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    networks:
+      - rent-swarm-network
+    depends_on:
+      - nextjs
+
+networks:
+  rent-swarm-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local

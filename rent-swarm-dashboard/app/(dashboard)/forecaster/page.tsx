@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   TrendingUp,
@@ -24,7 +24,7 @@ import { formatCurrency } from "@/lib/utils/format";
 import { AffordabilityCard } from "@/components/forecaster/affordability-card";
 import { UtilityEstimatorCard } from "@/components/forecaster/utility-estimator-card";
 
-export default function ForecasterPage() {
+function ForecasterContent() {
   const searchParams = useSearchParams();
   const [remcData, setRemcData] = useState<REMCData | null>(null);
   const [remcResult, setRemcResult] = useState<REMCResult | null>(null);
@@ -437,5 +437,17 @@ export default function ForecasterPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ForecasterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="font-mono text-sm text-muted-foreground">Loading...</div>
+      </div>
+    }>
+      <ForecasterContent />
+    </Suspense>
   );
 }
