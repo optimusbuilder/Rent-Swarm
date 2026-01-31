@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import { useScoutContext } from "@/app/context/scout-context";
+import { ListingCard } from "@/components/listing-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Mock listing data (optional fallback)
 const mockListings = [
@@ -74,7 +76,9 @@ export default function ScoutPage() {
     minBudget, setMinBudget,
     maxBudget, setMaxBudget,
     bedrooms, setBedrooms,
-    deployScout
+    deployScout,
+    bookmarks,
+    toggleBookmark,
   } = useScoutContext();
 
   // Note: All local state has been moved to ScoutContext for persistence.
@@ -217,124 +221,12 @@ export default function ScoutPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {listings.map((listing) => (
-                <Card
+                <ListingCard
                   key={listing.id}
-                  className="group overflow-hidden border-border bg-card transition-all duration-300 hover:border-primary/50"
-                >
-                  <div className="flex">
-                    {/* Thumbnail */}
-                    <div className="relative h-28 w-36 shrink-0 overflow-hidden bg-secondary">
-                      {listing.image ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={listing.image}
-                          alt="Listing"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="font-mono text-[10px] text-muted-foreground">
-                            [IMG]
-                          </div>
-                        </div>
-                      )}
-
-                      {listing.verified && (
-                        <div className="absolute left-1 top-1">
-                          <Badge className="bg-status-success/90 font-mono text-[10px] px-1 py-0 text-background">
-                            <Shield className="mr-0.5 h-2 w-2" />
-                            OK
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <CardContent className="flex flex-1 flex-col justify-between p-3">
-                      <div>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0 pr-2">
-                            {/* Make title clickable */}
-                            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-                            <a href={(listing as any).link || '#'} target="_blank" rel="noreferrer" className="group-hover:underline">
-                              <div className="flex items-baseline gap-1">
-                                <span className="font-mono text-lg font-bold text-foreground">
-                                  ${listing.price.toLocaleString()}
-                                </span>
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  /mo
-                                </span>
-                              </div>
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {listing.address}
-                              </p>
-                            </a>
-                          </div>
-                          <Badge
-                            className={`font-mono text-[10px] ${getScamScoreColor(listing.scamScore)} shrink-0`}
-                          >
-                            <AlertTriangle className="mr-0.5 h-2.5 w-2.5" />
-                            {listing.scamScore}%
-                          </Badge>
-                        </div>
-                        <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
-                          <span>{listing.beds} bed</span>
-                          <span>{listing.baths} bath</span>
-                          <span>{(listing.sqft || 0).toLocaleString()} sqft</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          asChild
-                          variant="secondary"
-                          size="sm"
-                          className="h-7 flex-1 font-mono text-[10px]"
-                        >
-                          <Link href="/lawyer">
-                            <Scale className="mr-1 h-3 w-3" />
-                            ANALYZE
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="h-7 flex-1 font-mono text-[10px] bg-transparent"
-                        >
-                          <Link
-                            href={{
-                              pathname: '/forecaster',
-                              query: {
-                                listingId: listing.id,
-                                price: listing.price,
-                                address: listing.address,
-                                city: listing.city,
-                                beds: listing.beds,
-                                baths: listing.baths,
-                                sqft: listing.sqft
-                              }
-                            }}
-                          >
-                            <TrendingUp className="mr-1 h-3 w-3" />
-                            FORECAST
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="h-7 flex-1 font-mono text-[10px] bg-transparent"
-                        >
-                          <Link href="/negotiate">
-                            <BadgeDollarSign className="mr-1 h-3 w-3" />
-                            NEGOTIATE
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </div>
-                </Card>
+                  listing={listing}
+                  isBookmarked={bookmarks.some(b => b.id === listing.id)}
+                  onToggleBookmark={toggleBookmark}
+                />
               ))}
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BadgeDollarSign,
   TrendingDown,
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 
 // Mock selected apartment data
 const selectedApartment = {
@@ -71,8 +73,102 @@ const metrics = {
 };
 
 export default function NegotiatePage() {
-  const [emailContent, setEmailContent] = useState(mockDraftedEmail);
+  const searchParams = useSearchParams();
+
+  // State for data
+  const [listing, setListing] = useState<any>(selectedApartment);
+  const [emailContent, setEmailContent] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+
+  // UI State
   const [copied, setCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  // Initialize from URL params
+  useEffect(() => {
+    const listingId = searchParams.get('listingId');
+    if (listingId) {
+      const paramListing = {
+        address: searchParams.get('address') || '',
+        city: searchParams.get('city') || '',
+        price: Number(searchParams.get('price')) || 0,
+        beds: Number(searchParams.get('beds')) || 1,
+        baths: Number(searchParams.get('baths')) || 1,
+        sqft: Number(searchParams.get('sqft')) || 0,
+        landlord: "Property Manager", // Default since we don't have this in params yet
+        listingAge: 14, // Default
+        similarUnitsAvg: Number(searchParams.get('price')) ? Number(searchParams.get('price'))! - 200 : 0, // Mock logic for demo
+        vacancyRate: 5.5,
+      };
+      setListing(paramListing);
+      generateDraft(paramListing);
+    } else {
+      // If no params, use mock and generate for it
+      setEmailContent(mockDraftedEmail);
+      // Optional: could auto-generate for mock too, but static is faster for demo
+    }
+  }, [searchParams]);
+
+  const generateDraft = async (currentListing: any) => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/negotiate/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing: currentListing }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEmailSubject(data.subject);
+        setEmailContent(data.body);
+      } else {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to generate");
+      }
+    } catch (error) {
+      console.error("Failed to generate draft", error);
+      setEmailContent("Error: Failed to generate negotiation draft. Please try again later.\n\n(Note: Ensure your API keys are configured correctly)");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!recipientEmail) {
+      alert("Please enter a recipient email."); // Simple alert for now
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const response = await fetch('/api/negotiate/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: emailSubject || "Regarding Rental Application",
+          body: emailContent,
+          from: "user@example.com" // Backend handles auth user context usually
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.warning) {
+          alert(`Success (Simulated): ${result.warning}`);
+        } else {
+          alert("Email sent successfully!");
+        }
+      }
+    } catch (error) {
+      alert("Failed to send email.");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(emailContent);
@@ -108,16 +204,16 @@ export default function NegotiatePage() {
               <CardContent className="space-y-4">
                 <div>
                   <p className="font-medium text-foreground">
-                    {selectedApartment.address}
+                    {listing.address}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedApartment.city}
+                    {listing.city}
                   </p>
                 </div>
 
                 <div className="flex items-baseline gap-1">
                   <span className="font-mono text-2xl font-bold text-foreground">
-                    ${selectedApartment.price.toLocaleString()}
+                    ${listing.price.toLocaleString()}
                   </span>
                   <span className="font-mono text-sm text-muted-foreground">
                     /mo
@@ -125,96 +221,32 @@ export default function NegotiatePage() {
                 </div>
 
                 <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground">
-                  <span>{selectedApartment.beds} bed</span>
+                  <span>{listing.beds} bed</span>
                   <span className="h-1 w-1 rounded-full bg-border" />
-                  <span>{selectedApartment.baths} bath</span>
+                  <span>{listing.baths} bath</span>
                   <span className="h-1 w-1 rounded-full bg-border" />
-                  <span>{selectedApartment.sqft.toLocaleString()} sqft</span>
-                </div>
-
-                <div className="space-y-2 border-t border-border pt-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Landlord</span>
-                    <span className="font-medium text-foreground">
-                      {selectedApartment.landlord}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Days Listed</span>
-                    <Badge
-                      variant="secondary"
-                      className="font-mono text-xs text-status-success"
-                    >
-                      <Calendar className="mr-1 h-3 w-3" />
-                      {selectedApartment.listingAge} days
-                    </Badge>
-                  </div>
+                  <span>{listing.sqft.toLocaleString()} sqft</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Metrics Dashboard */}
+            {/* Metrics Dashboard (Static for now, could be dynamic) */}
             <Card className="border-border bg-card">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 font-mono text-sm">
                   <TrendingDown className="h-4 w-4 text-status-success" />
-                  NEGOTIATION METRICS
+                  NEGOTIATION LEVERAGE
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Projected Monthly Savings */}
-                <div className="rounded-lg bg-status-success/10 p-4">
-                  <p className="font-mono text-xs text-muted-foreground">
-                    PROJECTED MONTHLY SAVINGS
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="font-mono text-3xl font-bold text-status-success">
-                      ${metrics.projectedSavings}
+                <div className="rounded-lg bg-secondary p-4">
+                  <p className="font-mono text-xs text-muted-foreground mb-2">TARGET RENT</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-2xl font-bold text-status-success">
+                      ${(listing.price ? Math.floor(listing.price * 0.93 / 50) * 50 : 0).toLocaleString()}
                     </span>
-                    <span className="font-mono text-sm text-muted-foreground">
-                      /mo
-                    </span>
-                  </div>
-                  <p className="mt-2 font-mono text-xs text-muted-foreground">
-                    <span className="text-status-success font-medium">
-                      ${metrics.annualSavings.toLocaleString()}
-                    </span>{" "}
-                    saved annually
-                  </p>
-                </div>
-
-                {/* Other Metrics */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-secondary p-3">
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      SUCCESS RATE
-                    </p>
-                    <p className="mt-1 font-mono text-xl font-bold text-primary">
-                      {metrics.successProbability}%
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-secondary p-3">
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      VS MARKET AVG
-                    </p>
-                    <p className="mt-1 font-mono text-xl font-bold text-status-success">
-                      ${metrics.marketDelta}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Market Context */}
-                <div className="space-y-2 border-t border-border pt-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Area Average</span>
-                    <span className="font-mono font-medium text-foreground">
-                      ${selectedApartment.similarUnitsAvg.toLocaleString()}/mo
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Vacancy Rate</span>
-                    <span className="font-mono font-medium text-status-warning">
-                      {selectedApartment.vacancyRate}%
+                    <span className="text-xs text-status-success">
+                      (-7%)
                     </span>
                   </div>
                 </div>
@@ -224,7 +256,7 @@ export default function NegotiatePage() {
 
           {/* Right Column: Email Editor */}
           <div className="lg:col-span-2">
-            <Card className="h-full border-border bg-card">
+            <Card className="h-full border-border bg-card flex flex-col">
               <CardHeader className="border-b border-border pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 font-mono text-sm">
@@ -232,6 +264,11 @@ export default function NegotiatePage() {
                     AI DRAFTED EMAIL
                   </CardTitle>
                   <div className="flex items-center gap-2">
+                    {isGenerating && (
+                      <span className="font-mono text-xs animate-pulse text-muted-foreground">
+                        Drafting Strategy...
+                      </span>
+                    )}
                     <Badge
                       variant="secondary"
                       className="font-mono text-xs text-primary"
@@ -241,19 +278,32 @@ export default function NegotiatePage() {
                     </Badge>
                   </div>
                 </div>
+
+                {/* Recipient Input */}
+                <div className="mt-4 flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      placeholder="Landlord's Email (e.g. landlord@property.com)"
+                      className="font-mono text-sm bg-secondary border-border"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="p-0">
+
+              <CardContent className="p-0 flex-1">
                 <Textarea
                   value={emailContent}
                   onChange={(e) => setEmailContent(e.target.value)}
-                  className="min-h-[500px] resize-none rounded-none border-0 bg-transparent p-6 font-mono text-sm leading-relaxed text-foreground focus-visible:ring-0"
-                  placeholder="AI is drafting your negotiation email..."
+                  className="h-full min-h-[400px] resize-none rounded-none border-0 bg-transparent p-6 font-mono text-sm leading-relaxed text-foreground focus-visible:ring-0"
+                  placeholder={isGenerating ? "Analyzing market logic..." : "No draft generated."}
                 />
               </CardContent>
+
               <div className="flex items-center justify-between border-t border-border p-4">
                 <p className="font-mono text-xs text-muted-foreground">
-                  <span className="text-primary">TIP:</span> Personalize the
-                  email before sending for best results
+                  <span className="text-primary">TIP:</span> Review carefully before sending.
                 </p>
                 <div className="flex gap-2">
                   <Button
@@ -273,9 +323,22 @@ export default function NegotiatePage() {
                       </>
                     )}
                   </Button>
-                  <Button className="font-mono text-xs">
-                    <Send className="mr-2 h-4 w-4" />
-                    SEND EMAIL
+                  <Button
+                    className="font-mono text-xs"
+                    onClick={handleSendEmail}
+                    disabled={isSending || isGenerating}
+                  >
+                    {isSending ? (
+                      <>
+                        <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                        SENDING...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        SEND EMAIL
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>

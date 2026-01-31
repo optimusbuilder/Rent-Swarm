@@ -68,6 +68,10 @@ interface ScoutContextType {
 
     // Actions
     deployScout: () => Promise<void>;
+
+    // Bookmarks
+    bookmarks: Listing[];
+    toggleBookmark: (listing: Listing) => void;
 }
 
 const ScoutContext = createContext<ScoutContextType | undefined>(undefined);
@@ -88,6 +92,37 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
     const [screenshot, setScreenshot] = useState<string | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
+
+    // Bookmarks State
+    const [bookmarks, setBookmarks] = useState<Listing[]>([]);
+
+    // Load from localStorage on mount (Client-side only)
+    React.useEffect(() => {
+        const saved = localStorage.getItem('rent-swarm-bookmarks');
+        if (saved) {
+            try {
+                setBookmarks(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse bookmarks", e);
+            }
+        }
+    }, []);
+
+    // Save to localStorage on change
+    React.useEffect(() => {
+        localStorage.setItem('rent-swarm-bookmarks', JSON.stringify(bookmarks));
+    }, [bookmarks]);
+
+    const toggleBookmark = (listing: Listing) => {
+        setBookmarks(prev => {
+            const exists = prev.find(b => b.id === listing.id);
+            if (exists) {
+                return prev.filter(b => b.id !== listing.id);
+            } else {
+                return [...prev, { ...listing, savedAt: new Date().toLocaleDateString() }];
+            }
+        });
+    };
 
     // --- Logic from page.tsx ---
     const deployScout = async () => {
@@ -178,13 +213,15 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
             screenshot,
             liveUrl,
             sessionId,
+            bookmarks,
             isScanning,
             isScouting,
             searchCity, setSearchCity,
             minBudget, setMinBudget,
             maxBudget, setMaxBudget,
             bedrooms, setBedrooms,
-            deployScout
+            deployScout,
+            toggleBookmark
         }}>
             {children}
         </ScoutContext.Provider>
