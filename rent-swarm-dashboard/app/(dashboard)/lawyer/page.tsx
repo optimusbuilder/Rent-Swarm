@@ -207,13 +207,6 @@ export default function LawyerPage() {
             </div>
             <Card className="border-border bg-card">
               <CardContent className="p-6">
-                {analysis.jurisdiction && (
-                  <div className="mb-4 rounded-md bg-muted/50 px-3 py-2">
-                    <p className="font-mono text-xs text-muted-foreground">
-                      Analyzing under: <span className="font-bold text-foreground">{analysis.jurisdiction}</span>
-                    </p>
-                  </div>
-                )}
                 <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
                   {leaseText || "PDF content extracted and analyzed."}
                 </pre>
@@ -234,13 +227,6 @@ export default function LawyerPage() {
                   </p>
                 </div>
               </div>
-              {analysis.jurisdiction && (
-                <div className="rounded-md bg-muted/50 px-3 py-1.5">
-                  <p className="font-mono text-xs text-muted-foreground">
-                    Analyzing under: <span className="font-bold text-foreground">{analysis.jurisdiction}</span>
-                  </p>
-                </div>
-              )}
             </div>
 
             {analysis.flags.length > 0 ? (

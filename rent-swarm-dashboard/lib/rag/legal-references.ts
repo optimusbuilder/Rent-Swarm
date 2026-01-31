@@ -16,6 +16,7 @@ export interface LegalSection {
   text: string;
   keywords: string[];
   violation_examples: string[];
+  jurisdiction?: string; // Add jurisdiction to the section itself
 }
 
 export interface LegalDocument {
@@ -41,48 +42,87 @@ export function getAllLegalSections(jurisdiction?: string): LegalSection[] {
 
   let allSections: LegalSection[] = [];
 
-  for (const doc of documents) {
-    // Match jurisdiction more flexibly (e.g., "DC" matches "Washington, DC")
-    if (!jurisdiction) {
+  // Debug logging
+  console.log('📚 getAllLegalSections called with jurisdiction:', jurisdiction);
+
+  // If no jurisdiction provided, return all sections
+  if (!jurisdiction || jurisdiction.trim() === '') {
+    console.log('⚠️ No jurisdiction provided - returning ALL sections from all jurisdictions');
+    for (const doc of documents) {
       allSections = allSections.concat(doc.sections);
+    }
+    return allSections;
+  }
+
+  // Jurisdiction is provided - only match specific documents
+  const jurisdictionLower = jurisdiction.toLowerCase().trim();
+  
+  // Extract state from "City, State" format for matching
+  const jurisdictionParts = jurisdictionLower.split(',').map(p => p.trim());
+  const cityFromJurisdiction = jurisdictionParts.length > 1 ? jurisdictionParts[0] : '';
+  const stateFromJurisdiction = jurisdictionParts.length > 1 ? jurisdictionParts[jurisdictionParts.length - 1] : jurisdictionLower;
+
+  for (const doc of documents) {
+    const docJurisdictionLower = doc.jurisdiction.toLowerCase().trim();
+    let matches = false;
+    
+    // Exact match first (most specific)
+    if (docJurisdictionLower === jurisdictionLower) {
+      matches = true;
+    }
+    // Match by state name (e.g., "texas" matches "Texas" document)
+    // This is the key match for "Austin, Texas" -> "Texas"
+    else if (docJurisdictionLower === stateFromJurisdiction) {
+      matches = true;
+    }
+    // City-specific matches (e.g., "Chicago" document matches "Chicago, Illinois")
+    else if (docJurisdictionLower.includes('chicago') && jurisdictionLower.includes('chicago')) {
+      matches = true;
+    } else if (docJurisdictionLower.includes('seattle') && jurisdictionLower.includes('seattle')) {
+      matches = true;
+    } else if (docJurisdictionLower.includes('boston') && jurisdictionLower.includes('boston')) {
+      matches = true;
+    }
+    // State abbreviation matches
+    else if (stateFromJurisdiction === 'dc' && docJurisdictionLower.includes('washington') && docJurisdictionLower.includes('dc')) {
+      matches = true;
+    } else if (stateFromJurisdiction === 'tx' && docJurisdictionLower === 'texas') {
+      matches = true;
+    } else if (stateFromJurisdiction === 'ca' && docJurisdictionLower === 'california') {
+      matches = true;
+    } else if ((stateFromJurisdiction === 'ny' || stateFromJurisdiction === 'nyc') && docJurisdictionLower.includes('new york')) {
+      matches = true;
+    } else if (stateFromJurisdiction === 'il' && docJurisdictionLower.includes('illinois')) {
+      matches = true;
+    } else if (stateFromJurisdiction === 'wa' && docJurisdictionLower.includes('washington') && !docJurisdictionLower.includes('dc')) {
+      matches = true;
+    } else if (stateFromJurisdiction === 'ma' && docJurisdictionLower.includes('massachusetts')) {
+      matches = true;
+    }
+    // City to state matches (e.g., "Austin" -> "Texas")
+    else if (cityFromJurisdiction === 'austin' && docJurisdictionLower === 'texas') {
+      matches = true;
+    } else if ((cityFromJurisdiction === 'san francisco' || cityFromJurisdiction === 'los angeles' || cityFromJurisdiction === 'san diego') && docJurisdictionLower === 'california') {
+      matches = true;
+    } else if ((cityFromJurisdiction === 'nyc' || cityFromJurisdiction === 'new york city' || cityFromJurisdiction === 'manhattan' || cityFromJurisdiction === 'brooklyn') && docJurisdictionLower.includes('new york')) {
+      matches = true;
+    }
+    
+    // Only add sections if there's a clear match - prevent false matches
+    if (matches) {
+      console.log(`✅ Matched document: ${doc.jurisdiction} (${doc.sections.length} sections)`);
+      // Add jurisdiction to each section so we know where it came from
+      const sectionsWithJurisdiction = doc.sections.map(section => ({
+        ...section,
+        jurisdiction: doc.jurisdiction
+      }));
+      allSections = allSections.concat(sectionsWithJurisdiction);
     } else {
-      const jurisdictionLower = jurisdiction.toLowerCase();
-      const docJurisdictionLower = doc.jurisdiction.toLowerCase();
-      
-      // Check if jurisdiction matches (e.g., "california" or "ca" matches "California")
-      // Also handle city names and abbreviations - now supports "City, State" format
-      const matches = 
-        docJurisdictionLower.includes(jurisdictionLower) ||
-        jurisdictionLower.includes(docJurisdictionLower) ||
-        // State abbreviations
-        (jurisdictionLower === 'dc' && docJurisdictionLower.includes('washington')) ||
-        (jurisdictionLower.includes('ca') && docJurisdictionLower.includes('california')) ||
-        (jurisdictionLower.includes('ny') && docJurisdictionLower.includes('new york')) ||
-        (jurisdictionLower.includes('nyc') && docJurisdictionLower.includes('new york')) ||
-        (jurisdictionLower.includes('tx') && docJurisdictionLower.includes('texas')) ||
-        (jurisdictionLower.includes('il') && docJurisdictionLower.includes('illinois')) ||
-        (jurisdictionLower.includes('wa') && docJurisdictionLower.includes('washington') && !docJurisdictionLower.includes('dc')) ||
-        (jurisdictionLower.includes('ma') && docJurisdictionLower.includes('massachusetts')) ||
-        // City name matches - handle "City, State" format
-        (jurisdictionLower.includes('austin') && docJurisdictionLower.includes('texas')) ||
-        (jurisdictionLower.includes('chicago') && docJurisdictionLower.includes('chicago')) ||
-        (jurisdictionLower.includes('seattle') && docJurisdictionLower.includes('seattle')) ||
-        (jurisdictionLower.includes('boston') && docJurisdictionLower.includes('boston')) ||
-        (jurisdictionLower.includes('new york') && docJurisdictionLower.includes('new york')) ||
-        (jurisdictionLower.includes('san francisco') && docJurisdictionLower.includes('california')) ||
-        (jurisdictionLower.includes('los angeles') && docJurisdictionLower.includes('california')) ||
-        (jurisdictionLower.includes('san diego') && docJurisdictionLower.includes('california')) ||
-        // Handle "City, State" format - extract state and match
-        (jurisdictionLower.includes('california') && docJurisdictionLower.includes('california')) ||
-        (jurisdictionLower.includes('texas') && docJurisdictionLower.includes('texas')) ||
-        (jurisdictionLower.includes('new york') && docJurisdictionLower.includes('new york'));
-      
-      if (matches) {
-        allSections = allSections.concat(doc.sections);
-      }
+      console.log(`❌ No match for document: ${doc.jurisdiction}`);
     }
   }
 
+  console.log(`📋 Total sections returned: ${allSections.length}`);
   return allSections;
 }
 
