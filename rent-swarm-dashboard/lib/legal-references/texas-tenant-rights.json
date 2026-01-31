@@ -1,0 +1,57 @@
+{
+  "jurisdiction": "Texas",
+  "title": "Texas Tenant Protection Laws",
+  "sections": [
+    {
+      "id": "entry-notice",
+      "title": "Landlord Entry Requirements",
+      "text": "In Texas, landlords must provide reasonable notice before entering a rental unit, typically 24 hours. Entry must be for a legitimate purpose (repairs, inspections, showings). Entry without notice or at unreasonable times may violate tenant privacy rights under Texas Property Code.",
+      "keywords": ["entry", "notice", "reasonable notice", "24 hours", "enter", "access", "inspection", "repair", "privacy"],
+      "violation_examples": [
+        "enter at any time",
+        "enter without notice",
+        "enter at landlord's discretion",
+        "immediate access",
+        "no notice required"
+      ]
+    },
+    {
+      "id": "security-deposit",
+      "title": "Security Deposit Requirements",
+      "text": "In Texas, security deposits must be refundable and returned within 30 days of lease termination. Landlords must provide itemized deductions and cannot make deposits 'non-refundable' or exercise unilateral discretion over returns. There are no statutory limits on deposit amounts, but refundability is required.",
+      "keywords": ["security deposit", "deposit", "refund", "non-refundable", "refundable", "30 days", "itemized", "return"],
+      "violation_examples": [
+        "non-refundable deposit",
+        "generally non-refundable",
+        "deposit at landlord's discretion",
+        "landlord may retain deposit",
+        "unilateral discretion"
+      ]
+    },
+    {
+      "id": "habitability",
+      "title": "Warranty of Habitability",
+      "text": "Landlords must maintain rental units in habitable condition with working heat, air conditioning (in some areas), plumbing, and compliance with housing codes. Tenants may exercise 'repair and deduct' remedies if landlords fail to make necessary repairs. Essential repairs cannot be shifted to tenants.",
+      "keywords": ["habitability", "repairs", "maintenance", "heat", "air conditioning", "AC", "plumbing", "housing code", "repair and deduct"],
+      "violation_examples": [
+        "tenant responsible for all repairs",
+        "tenant pays for landlord repairs",
+        "no heat required",
+        "tenant responsible for essential systems",
+        "no air conditioning required"
+      ]
+    },
+    {
+      "id": "retaliatory-eviction",
+      "title": "Protection Against Retaliatory Eviction",
+      "text": "Landlords cannot evict tenants in retaliation for exercising their rights, such as filing complaints about housing code violations, requesting repairs, or organizing with other tenants. Retaliatory evictions are illegal under Texas Property Code.",
+      "keywords": ["retaliation", "retaliatory", "eviction", "complaint", "repair request", "tenant organization"],
+      "violation_examples": [
+        "eviction for complaints",
+        "termination for requesting repairs",
+        "eviction for organizing"
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,52 @@
+{
+  "jurisdiction": "Chicago, Illinois",
+  "title": "Chicago Residential Landlord Tenant Ordinance",
+  "sections": [
+    {
+      "id": "entry-notice",
+      "title": "Landlord Entry Requirements",
+      "text": "In Chicago, landlords must provide at least 48 hours written notice before entering a rental unit, except in emergencies. The notice must specify the date, approximate time, and purpose of entry. Entry without proper notice violates the Chicago Residential Landlord Tenant Ordinance (RLTO).",
+      "keywords": ["entry", "notice", "48 hours", "written notice", "enter", "access", "inspection", "repair", "RLTO"],
+      "violation_examples": [
+        "enter at any time",
+        "enter without notice",
+        "enter at landlord's discretion",
+        "immediate access",
+        "no notice required"
+      ]
+    },
+    {
+      "id": "security-deposit",
+      "title": "Security Deposit Requirements",
+      "text": "In Chicago, security deposits are subject to strict requirements including limits on withholding, mandatory itemized deductions, and required disclosures about escrow accounts and interest. Language allowing withholding at the landlord's discretion for broad categories such as 'administrative costs' or 'other expenses' without itemization may conflict with tenant protection rules. Deposits exceeding one month's rent may also violate RLTO limits.",
+      "keywords": ["security deposit", "deposit", "withhold", "discretion", "administrative costs", "other expenses", "itemized", "itemization", "deductions", "escrow", "interest", "exceeds one month", "exceeds rent"],
+      "violation_examples": [
+        "withheld at landlord's discretion",
+        "administrative costs",
+        "other expenses",
+        "without itemization",
+        "no itemized deductions",
+        "deposit exceeds one month",
+        "deposit exceeds rent",
+        "unilateral discretion",
+        "landlord may withhold",
+        "no escrow disclosure"
+      ]
+    },
+    {
+      "id": "habitability",
+      "title": "Warranty of Habitability",
+      "text": "While tenants may be responsible for routine maintenance, landlords cannot shift responsibility for essential habitability conditions such as heat, plumbing, and code compliance. Broad language assigning repair responsibility to tenants or disclaiming repair delays may conflict with Chicago habitability protections. Landlords must maintain rental units in habitable condition with working heat (minimum 68°F), hot water, plumbing, and compliance with Chicago building codes.",
+      "keywords": ["habitability", "repairs", "maintenance", "heat", "68 degrees", "hot water", "plumbing", "building code", "tenant responsible", "repair delays", "disclaim", "essential systems"],
+      "violation_examples": [
+        "tenant responsible for all repairs",
+        "tenant pays for landlord repairs",
+        "landlord disclaims repair delays",
+        "no heat required",
+        "tenant responsible for essential systems",
+        "broad repair responsibility"
+      ]
+    }
+  ]
+}
+

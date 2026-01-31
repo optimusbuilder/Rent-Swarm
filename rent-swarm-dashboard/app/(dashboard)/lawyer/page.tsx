@@ -1,106 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { Scale, Upload, FileText, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
+import { useState, useRef } from "react";
+import { Scale, Upload, FileText, AlertTriangle, AlertCircle, CheckCircle, Loader2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-// Mock lease text
-const mockLeaseText = `RESIDENTIAL LEASE AGREEMENT
+interface LegalReference {
+  title: string;
+  text: string;
+  jurisdiction: string;
+}
 
-This Lease Agreement ("Lease") is entered into as of January 15, 2026, by and between the Landlord and Tenant identified below.
+interface RiskFlag {
+  type: string;
+  excerpt: string;
+  explanation: string;
+  legalReference?: LegalReference;
+  severity?: 'high' | 'warning' | 'info';
+}
 
-SECTION 1. PARTIES
-Landlord: Pacific Properties LLC
-Tenant: [Tenant Name]
-
-SECTION 2. PREMISES
-The Landlord leases to the Tenant the property located at:
-1847 Market Street, Apartment 4B
-San Francisco, CA 94102
-
-SECTION 3. TERM
-The lease term shall commence on February 1, 2026 and end on January 31, 2027.
-
-SECTION 4. RENT
-Monthly rent: $2,450.00
-Due on the 1st of each month
-Late fee: $150.00 after 5 days
-
-SECTION 5. SECURITY DEPOSIT
-Security deposit amount: $4,900.00 (Two months rent)
-
-SECTION 6. UTILITIES
-Tenant is responsible for: Electricity, Gas, Internet
-Landlord is responsible for: Water, Garbage
-
-SECTION 7. ENTRY BY LANDLORD
-Landlord may enter the premises at any time without notice for inspections, repairs, or showings to prospective tenants.
-
-SECTION 8. MAINTENANCE
-Tenant shall be responsible for all repairs up to $500.00 per incident.
-
-SECTION 9. ALTERATIONS
-No alterations, additions, or improvements shall be made without prior written consent.
-
-SECTION 10. PETS
-No pets of any kind are permitted without additional deposit of $1,000.00.
-
-SECTION 11. TERMINATION
-Landlord may terminate this lease with 30 days notice for any reason.
-
-SECTION 12. ATTORNEY FEES
-In any legal action, the prevailing party shall be entitled to attorney's fees.`;
-
-// Mock risk alerts
-const mockAlerts = [
-  {
-    id: 1,
-    severity: "high",
-    title: "Illegal Entry Clause",
-    section: "Section 7",
-    description:
-      "California law requires landlords to provide 24-hour notice before entering, except in emergencies. This clause allowing entry 'at any time without notice' is unenforceable and illegal.",
-    recommendation: "Request amendment to include 24-hour notice requirement.",
-  },
-  {
-    id: 2,
-    severity: "high",
-    title: "Excessive Security Deposit",
-    section: "Section 5",
-    description:
-      "California limits security deposits to 2 months rent for unfurnished units. However, combined with last month's rent requirements, this may exceed legal limits.",
-    recommendation: "Verify total move-in costs comply with CA Civil Code 1950.5.",
-  },
-  {
-    id: 3,
-    severity: "warning",
-    title: "Unrestricted Termination",
-    section: "Section 11",
-    description:
-      "The termination clause allows landlord to end lease with only 30 days notice 'for any reason'. In rent-controlled areas, this may violate just cause eviction requirements.",
-    recommendation: "Verify if property is subject to SF rent control ordinance.",
-  },
-  {
-    id: 4,
-    severity: "warning",
-    title: "Tenant Repair Responsibility",
-    section: "Section 8",
-    description:
-      "Requiring tenant to pay for repairs up to $500 per incident may be excessive and could include items that are typically landlord responsibility.",
-    recommendation: "Negotiate lower threshold or specify excluded items.",
-  },
-  {
-    id: 5,
-    severity: "safe",
-    title: "Standard Late Fee",
-    section: "Section 4",
-    description:
-      "Late fee of $150 after 5-day grace period is within reasonable limits under California law.",
-    recommendation: "No action needed.",
-  },
-];
+interface AnalysisResult {
+  summary: string;
+  flags: RiskFlag[];
+  disclaimer: string;
+  jurisdiction?: string;
+  extractedText?: string;
+}
 
 function getSeverityStyles(severity: string) {
   switch (severity) {
@@ -131,38 +58,164 @@ function getSeverityStyles(severity: string) {
   }
 }
 
+const JURISDICTIONS = [
+  { value: 'auto', label: 'Auto-detect from lease' },
+  { value: 'Washington, DC', label: 'Washington, DC' },
+  { value: 'San Francisco, California', label: 'San Francisco, California' },
+  { value: 'Los Angeles, California', label: 'Los Angeles, California' },
+  { value: 'New York City, New York', label: 'New York City, New York' },
+  { value: 'Austin, Texas', label: 'Austin, Texas' },
+  { value: 'Chicago, Illinois', label: 'Chicago, Illinois' },
+  { value: 'Seattle, Washington', label: 'Seattle, Washington' },
+  { value: 'Boston, Massachusetts', label: 'Boston, Massachusetts' },
+];
+
 export default function LawyerPage() {
-  const [hasLease, setHasLease] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('auto');
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [leaseText, setLeaseText] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (file: File) => {
+    if (file.type !== "application/pdf") {
+      setError("Please upload a PDF file.");
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    setFileName(file.name);
+    setLeaseText(null);
+    setAnalysis(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      // Add jurisdiction if manually selected (skip if 'auto')
+      if (selectedJurisdiction && selectedJurisdiction !== 'auto') {
+        formData.append("jurisdiction", selectedJurisdiction);
+      }
+
+      const response = await fetch("/api/lease/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze lease");
+      }
+
+      const result: AnalysisResult = await response.json();
+      setAnalysis(result);
+      
+      // Display the extracted PDF text
+      setLeaseText(result.extractedText || "PDF content extracted and analyzed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+      setFileName(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handleReset = () => {
+    setFileName(null);
+    setLeaseText(null);
+    setAnalysis(null);
+    setError(null);
+    setSelectedJurisdiction('auto');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-border bg-background px-6 py-4">
-        <div className="flex items-center gap-2">
-          <Scale className="h-5 w-5 text-primary" />
-          <h1 className="font-mono text-lg font-bold">THE LAWYER</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" />
+              <h1 className="font-mono text-lg font-bold">THE LAWYER</h1>
+            </div>
+            <p className="mt-1 font-mono text-sm text-muted-foreground">
+              AI-Powered Lease Analysis & Risk Detection
+            </p>
+          </div>
+          {!fileName && (
+            <div className="flex items-center gap-2">
+              <label className="font-mono text-xs text-muted-foreground">Jurisdiction:</label>
+              <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
+                <SelectTrigger className="w-[200px] font-mono text-xs">
+                  <SelectValue placeholder="Auto-detect" />
+                </SelectTrigger>
+                <SelectContent>
+                  {JURISDICTIONS.map((jur) => (
+                    <SelectItem key={jur.value} value={jur.value}>
+                      {jur.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-        <p className="mt-1 font-mono text-sm text-muted-foreground">
-          AI-Powered Lease Analysis & Risk Detection
-        </p>
       </header>
 
-      {hasLease ? (
+      {fileName && analysis ? (
         /* Split View */
         <div className="flex h-[calc(100vh-89px)]">
           {/* Left: PDF Text */}
           <div className="flex-1 overflow-auto border-r border-border p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span className="font-mono text-sm text-muted-foreground">
-                lease_agreement_2026.pdf
-              </span>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="font-mono text-sm text-muted-foreground">
+                  {fileName}
+                </span>
+              </div>
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
+              >
+                <X className="h-3 w-3" />
+                Upload New
+              </button>
             </div>
             <Card className="border-border bg-card">
               <CardContent className="p-6">
+                {analysis.jurisdiction && (
+                  <div className="mb-4 rounded-md bg-muted/50 px-3 py-2">
+                    <p className="font-mono text-xs text-muted-foreground">
+                      Analyzing under: <span className="font-bold text-foreground">{analysis.jurisdiction}</span>
+                    </p>
+                  </div>
+                )}
                 <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
-                  {mockLeaseText}
+                  {leaseText || "PDF content extracted and analyzed."}
                 </pre>
               </CardContent>
             </Card>
@@ -170,64 +223,100 @@ export default function LawyerPage() {
 
           {/* Right: Risk Alerts */}
           <div className="w-[480px] overflow-auto bg-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-mono text-sm font-bold text-foreground">
-                  RISK ANALYSIS
-                </h2>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {mockAlerts.length} issues detected
-                </p>
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="font-mono text-sm font-bold text-foreground">
+                    RISK ANALYSIS
+                  </h2>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {analysis.flags.length} {analysis.flags.length === 1 ? "issue" : "issues"} detected
+                  </p>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Badge className="bg-status-danger font-mono text-xs text-foreground">
-                  {mockAlerts.filter((a) => a.severity === "high").length} HIGH
-                </Badge>
-                <Badge className="bg-status-warning font-mono text-xs text-background">
-                  {mockAlerts.filter((a) => a.severity === "warning").length} WARN
-                </Badge>
-              </div>
+              {analysis.jurisdiction && (
+                <div className="rounded-md bg-muted/50 px-3 py-1.5">
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Analyzing under: <span className="font-bold text-foreground">{analysis.jurisdiction}</span>
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-4">
-              {mockAlerts.map((alert) => {
-                const styles = getSeverityStyles(alert.severity);
-                const Icon = styles.icon;
-                return (
-                  <Card
-                    key={alert.id}
-                    className={cn("border transition-all hover:shadow-md", styles.bg)}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon className={cn("h-5 w-5", styles.iconColor)} />
-                          <CardTitle className="font-mono text-sm text-foreground">
-                            {alert.title}
-                          </CardTitle>
+            {analysis.flags.length > 0 ? (
+              <div className="space-y-4">
+                {analysis.flags.map((flag, index) => {
+                  const severity = flag.severity || (flag.type === "illegal_entry" || flag.type === "deposit_risk" ? "high" : "warning");
+                  const styles = getSeverityStyles(severity);
+                  const Icon = styles.icon;
+                  return (
+                    <Card
+                      key={index}
+                      className={cn("border transition-all hover:shadow-md", styles.bg)}
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <Icon className={cn("h-5 w-5", styles.iconColor)} />
+                            <CardTitle className="font-mono text-sm text-foreground capitalize">
+                              {flag.legalReference?.title || flag.type.replace(/_/g, " ")}
+                            </CardTitle>
+                          </div>
+                          <Badge className={cn("font-mono text-[10px]", styles.badge)}>
+                            {styles.label}
+                          </Badge>
                         </div>
-                        <Badge className={cn("font-mono text-[10px]", styles.badge)}>
-                          {styles.label}
-                        </Badge>
-                      </div>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {alert.section}
-                      </span>
-                    </CardHeader>
-                    <CardContent className="space-y-3 pb-4">
-                      <p className="text-sm text-foreground/80">
-                        {alert.description}
-                      </p>
-                      <div className="rounded-md bg-background/50 p-3">
-                        <p className="font-mono text-xs text-primary">
-                          RECOMMENDATION: {alert.recommendation}
+                        {flag.legalReference && (
+                          <p className="font-mono text-xs text-muted-foreground mt-1">
+                            {flag.legalReference.jurisdiction}
+                          </p>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-3 pb-4">
+                        <div className="rounded-md bg-background/50 p-3">
+                          <p className="font-mono text-xs text-muted-foreground mb-2">LEASE EXCERPT:</p>
+                          <p className="text-sm text-foreground/80 italic">
+                            "{flag.excerpt}"
+                          </p>
+                        </div>
+                        <p className="text-sm text-foreground/80">
+                          {flag.explanation}
                         </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                        {flag.legalReference && (
+                          <div className="rounded-md bg-primary/5 border border-primary/20 p-3 mt-3">
+                            <p className="font-mono text-xs text-primary mb-2 font-bold">
+                              LEGAL REFERENCE:
+                            </p>
+                            <p className="text-xs text-foreground/90">
+                              {flag.legalReference.text}
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card className="border border-status-success/30 bg-status-success/10">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-status-success" />
+                    <p className="font-mono text-sm text-foreground">
+                      No obvious risky clauses detected
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {analysis.disclaimer && (
+              <div className="mt-6 rounded-md bg-muted/50 p-4">
+                <p className="font-mono text-xs text-muted-foreground">
+                  {analysis.disclaimer}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -237,41 +326,54 @@ export default function LawyerPage() {
             onDragEnter={() => setIsDragging(true)}
             onDragLeave={() => setIsDragging(false)}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              setHasLease(true);
-            }}
+            onDrop={handleDrop}
             className={cn(
               "flex h-80 w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all duration-300",
               isDragging
                 ? "border-primary bg-primary/5"
-                : "border-border bg-card hover:border-primary/50 hover:bg-card/80"
+                : "border-border bg-card hover:border-primary/50 hover:bg-card/80",
+              isUploading && "pointer-events-none opacity-50"
             )}
-            onClick={() => setHasLease(true)}
+            onClick={() => fileInputRef.current?.click()}
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
             <div
               className={cn(
                 "mb-4 flex h-16 w-16 items-center justify-center rounded-full transition-colors",
                 isDragging ? "bg-primary/20" : "bg-secondary"
               )}
             >
-              <Upload
-                className={cn(
-                  "h-8 w-8 transition-colors",
-                  isDragging ? "text-primary" : "text-muted-foreground"
-                )}
-              />
+              {isUploading ? (
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              ) : (
+                <Upload
+                  className={cn(
+                    "h-8 w-8 transition-colors",
+                    isDragging ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+              )}
             </div>
             <h3 className="font-mono text-lg font-bold text-foreground">
-              DROP LEASE PDF HERE
+              {isUploading ? "ANALYZING LEASE..." : "DROP LEASE PDF HERE"}
             </h3>
             <p className="mt-2 font-mono text-sm text-muted-foreground">
-              or click to browse files
+              {isUploading ? "Please wait..." : "or click to browse files"}
             </p>
             <p className="mt-4 font-mono text-xs text-muted-foreground/60">
-              Supported: PDF, DOC, DOCX (Max 10MB)
+              Supported: PDF (Max 10MB)
             </p>
+            {error && (
+              <div className="mt-4 rounded-md bg-status-danger/10 border border-status-danger/30 px-4 py-2">
+                <p className="font-mono text-xs text-status-danger">{error}</p>
+              </div>
+            )}
           </div>
         </div>
       )}

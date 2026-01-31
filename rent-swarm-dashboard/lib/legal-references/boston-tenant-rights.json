@@ -1,0 +1,46 @@
+{
+  "jurisdiction": "Boston, Massachusetts",
+  "title": "Boston Tenant Protection Laws",
+  "sections": [
+    {
+      "id": "entry-notice",
+      "title": "Landlord Entry Requirements",
+      "text": "In Boston, landlords must provide reasonable notice before entering a rental unit, typically 24-48 hours. Entry must be for a legitimate purpose and at reasonable times. Entry without notice may violate tenant privacy rights under Massachusetts law.",
+      "keywords": ["entry", "notice", "reasonable notice", "24 hours", "48 hours", "enter", "access", "inspection", "repair"],
+      "violation_examples": [
+        "enter at any time",
+        "enter without notice",
+        "enter at landlord's discretion",
+        "immediate access",
+        "no notice required"
+      ]
+    },
+    {
+      "id": "security-deposit",
+      "title": "Security Deposit Requirements",
+      "text": "In Boston, security deposits are limited to one month's rent. All deposits must be held in a separate interest-bearing escrow account. Landlords must return deposits within 30 days with itemized deductions. Deposits cannot be 'non-refundable' or subject to landlord's unilateral discretion.",
+      "keywords": ["security deposit", "deposit", "refund", "non-refundable", "refundable", "one month", "30 days", "escrow", "interest-bearing"],
+      "violation_examples": [
+        "non-refundable deposit",
+        "generally non-refundable",
+        "deposit at landlord's discretion",
+        "landlord may retain deposit",
+        "deposit exceeds one month",
+        "unilateral discretion"
+      ]
+    },
+    {
+      "id": "habitability",
+      "title": "Warranty of Habitability",
+      "text": "Landlords must maintain rental units in habitable condition with working heat (minimum 68°F from September to June), hot water, plumbing, and compliance with State Sanitary Code. Tenants may withhold rent or file complaints with Inspectional Services if landlords fail to make necessary repairs.",
+      "keywords": ["habitability", "repairs", "maintenance", "heat", "68 degrees", "hot water", "plumbing", "State Sanitary Code", "Inspectional Services"],
+      "violation_examples": [
+        "tenant responsible for all repairs",
+        "tenant pays for landlord repairs",
+        "no heat required",
+        "tenant responsible for essential systems"
+      ]
+    }
+  ]
+}
+

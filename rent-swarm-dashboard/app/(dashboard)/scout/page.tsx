@@ -11,6 +11,7 @@ import {
   BadgeDollarSign,
   Bed,
   Monitor,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -359,6 +360,17 @@ export default function ScoutPage() {
                           variant="secondary"
                           size="sm"
                           className="h-7 flex-1 font-mono text-[10px]"
+                        >
+                          <Link href={`/forecaster?listingId=${listing.id}&price=${listing.price}&address=${encodeURIComponent(listing.address)}&city=${encodeURIComponent(listing.city)}&beds=${listing.beds}&baths=${listing.baths}&sqft=${listing.sqft}`}>
+                            <TrendingUp className="mr-1 h-3 w-3" />
+                            FORECAST
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="h-7 flex-1 font-mono text-[10px] bg-transparent"
                         >
                           <Link href="/lawyer">
                             <Scale className="mr-1 h-3 w-3" />

@@ -1,0 +1,65 @@
+{
+  "jurisdiction": "Washington, DC",
+  "title": "DC Tenant Bill of Rights",
+  "sections": [
+    {
+      "id": "entry-notice",
+      "title": "Landlord Entry Requirements",
+      "text": "Landlords must provide at least 48 hours written notice before entering a rental unit, except in cases of emergency. The notice must specify the date, approximate time, and purpose of entry.",
+      "keywords": ["entry", "notice", "48 hours", "written notice", "enter", "access", "inspection", "repair"],
+      "violation_examples": [
+        "enter at any time",
+        "enter without notice",
+        "enter at landlord's discretion",
+        "immediate access"
+      ]
+    },
+    {
+      "id": "security-deposit",
+      "title": "Security Deposit Requirements",
+      "text": "In Washington, DC, security deposits must be refundable and returned within 45 days of lease termination with itemized deductions if any. All deposits must be held in an interest-bearing escrow account. Landlords cannot make deposits 'generally non-refundable' or exercise unilateral discretion over returns, which conflicts with tenant protection laws.",
+      "keywords": ["security deposit", "deposit", "refund", "non-refundable", "refundable", "escrow", "return", "discretion", "generally non-refundable", "landlord discretion"],
+      "violation_examples": [
+        "non-refundable deposit",
+        "generally non-refundable",
+        "deposit at landlord's discretion",
+        "landlord may retain deposit",
+        "deposit not refundable",
+        "unilateral discretion"
+      ]
+    },
+    {
+      "id": "automatic-renewal",
+      "title": "Lease Renewal Requirements",
+      "text": "Leases cannot automatically renew without explicit tenant consent. Tenants must receive written notice at least 30 days before lease expiration if the landlord wishes to renew or change terms.",
+      "keywords": ["automatic renewal", "auto-renew", "renewal", "lease extension", "renew without notice"],
+      "violation_examples": [
+        "automatic renewal",
+        "lease renews automatically",
+        "renewal without consent"
+      ]
+    },
+    {
+      "id": "retaliatory-eviction",
+      "title": "Protection Against Retaliatory Eviction",
+      "text": "Landlords cannot evict tenants in retaliation for exercising their rights, such as filing complaints about housing code violations, joining tenant organizations, or requesting repairs.",
+      "keywords": ["retaliation", "retaliatory", "eviction", "complaint", "repair request"],
+      "violation_examples": [
+        "eviction for complaints",
+        "termination for requesting repairs"
+      ]
+    },
+    {
+      "id": "habitability",
+      "title": "Warranty of Habitability",
+      "text": "Landlords must maintain rental units in habitable condition, including working heat, plumbing, electricity, and compliance with all housing codes. Tenants may withhold rent if landlords fail to make necessary repairs.",
+      "keywords": ["habitability", "repairs", "maintenance", "heat", "plumbing", "electricity", "housing code"],
+      "violation_examples": [
+        "tenant responsible for all repairs",
+        "tenant pays for landlord repairs",
+        "no warranty of habitability"
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,56 @@
+{
+  "jurisdiction": "New York",
+  "title": "New York Tenant Protection Laws",
+  "sections": [
+    {
+      "id": "entry-notice",
+      "title": "Landlord Entry Requirements",
+      "text": "Landlords must provide reasonable notice before entering a rental unit, typically 24-48 hours. Entry must be for a legitimate purpose (repairs, inspections, showings). Entry without notice or at unreasonable times may violate tenant privacy rights under New York law.",
+      "keywords": ["entry", "notice", "reasonable notice", "24 hours", "48 hours", "enter", "access", "inspection", "repair", "privacy"],
+      "violation_examples": [
+        "enter at any time",
+        "enter without notice",
+        "enter at landlord's discretion",
+        "immediate access",
+        "no notice required"
+      ]
+    },
+    {
+      "id": "security-deposit",
+      "title": "Security Deposit Requirements",
+      "text": "In New York, security deposits must be refundable and returned within a reasonable time after lease termination. For rent-stabilized units, deposits are limited. Landlords must provide itemized deductions and cannot make deposits 'non-refundable' or exercise unilateral discretion over returns.",
+      "keywords": ["security deposit", "deposit", "refund", "non-refundable", "refundable", "itemized", "return"],
+      "violation_examples": [
+        "non-refundable deposit",
+        "generally non-refundable",
+        "deposit at landlord's discretion",
+        "landlord may retain deposit",
+        "unilateral discretion"
+      ]
+    },
+    {
+      "id": "rent-stabilization",
+      "title": "Rent Stabilization Protections",
+      "text": "In New York City and other jurisdictions, rent-stabilized tenants have protections against excessive rent increases, eviction without just cause, and lease renewal rights. Landlords cannot circumvent these protections through lease terms.",
+      "keywords": ["rent stabilization", "rent control", "just cause eviction", "lease renewal", "rent increase"],
+      "violation_examples": [
+        "eviction without cause",
+        "unrestricted termination",
+        "no renewal rights"
+      ]
+    },
+    {
+      "id": "habitability",
+      "title": "Warranty of Habitability",
+      "text": "Landlords must maintain rental units in habitable condition with working heat, hot water, plumbing, and compliance with housing codes. Tenants may withhold rent or file complaints with HPD if landlords fail to make necessary repairs. Essential repairs cannot be shifted to tenants.",
+      "keywords": ["habitability", "repairs", "maintenance", "heat", "hot water", "plumbing", "housing code", "HPD"],
+      "violation_examples": [
+        "tenant responsible for all repairs",
+        "tenant pays for landlord repairs",
+        "no heat required",
+        "tenant responsible for essential systems"
+      ]
+    }
+  ]
+}
+
