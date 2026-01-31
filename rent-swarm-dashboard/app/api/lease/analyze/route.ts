@@ -265,17 +265,28 @@ export async function POST(request: NextRequest) {
     
     // Try to auto-detect jurisdiction from lease text if not provided
     // Always return in "City, State" format when possible
+    // Be conservative - only detect if there's a strong signal (city name or city+state combo)
     if (!jurisdictionParam) {
       const textLower = pdfText.toLowerCase();
       
-      // City-specific detection (more specific first) - already in "City, State" format
-      if (textLower.includes('austin')) {
+      // City-specific detection (more specific first) - require actual city mentions
+      // Check for city names first, then city+state combinations
+      if (textLower.includes('austin') && (textLower.includes('texas') || textLower.includes(' tx '))) {
         jurisdiction = 'Austin, Texas';
-      } else if (textLower.includes('chicago')) {
+      } else if (textLower.includes('chicago') && (textLower.includes('illinois') || textLower.includes(' il '))) {
         jurisdiction = 'Chicago, Illinois';
-      } else if (textLower.includes('seattle')) {
+      } else if (textLower.includes('chicago')) {
+        // If Chicago is mentioned, assume it's Chicago, Illinois
+        jurisdiction = 'Chicago, Illinois';
+      } else if (textLower.includes('seattle') && (textLower.includes('washington') || textLower.includes(' wa '))) {
         jurisdiction = 'Seattle, Washington';
+      } else if (textLower.includes('seattle')) {
+        // If Seattle is mentioned, assume it's Seattle, Washington
+        jurisdiction = 'Seattle, Washington';
+      } else if (textLower.includes('boston') && (textLower.includes('massachusetts') || textLower.includes(' ma '))) {
+        jurisdiction = 'Boston, Massachusetts';
       } else if (textLower.includes('boston')) {
+        // If Boston is mentioned, assume it's Boston, Massachusetts
         jurisdiction = 'Boston, Massachusetts';
       } else if (textLower.includes('nyc') || textLower.includes('new york city') || textLower.includes('manhattan') || textLower.includes('brooklyn') || textLower.includes('queens') || textLower.includes('bronx')) {
         jurisdiction = 'New York City, New York';
@@ -285,25 +296,30 @@ export async function POST(request: NextRequest) {
         jurisdiction = 'Los Angeles, California';
       } else if (textLower.includes('san diego')) {
         jurisdiction = 'San Diego, California';
-      } else if (textLower.includes('washington') && (textLower.includes(' dc ') || textLower.includes('district of columbia'))) {
+      } else if ((textLower.includes('washington') && (textLower.includes(' dc ') || textLower.includes('district of columbia'))) || textLower.includes('district of columbia')) {
         jurisdiction = 'Washington, DC';
-      } else if (textLower.includes('new york') || textLower.includes(' ny ')) {
-        // Default to NYC if just "New York" is mentioned
+      } else if (textLower.includes('new york') && (textLower.includes(' ny ') || textLower.includes('new york state'))) {
+        // Only if "New York" appears with state context
         jurisdiction = 'New York City, New York';
-      } else if (textLower.includes('california') || textLower.includes(' ca ')) {
-        // Default to San Francisco for California if no city specified
-        jurisdiction = 'San Francisco, California';
-      } else if (textLower.includes('texas') || textLower.includes(' tx ')) {
-        // Default to Austin for Texas if no city specified
+      } else if (textLower.includes('california') && (textLower.includes('san francisco') || textLower.includes('los angeles') || textLower.includes('san diego'))) {
+        // If California + specific city mentioned
+        if (textLower.includes('los angeles')) {
+          jurisdiction = 'Los Angeles, California';
+        } else if (textLower.includes('san diego')) {
+          jurisdiction = 'San Diego, California';
+        } else {
+          jurisdiction = 'San Francisco, California';
+        }
+      } else if (textLower.includes('texas') && textLower.includes('austin')) {
         jurisdiction = 'Austin, Texas';
-      } else if (textLower.includes('illinois') || textLower.includes(' il ')) {
+      } else if (textLower.includes('illinois') && textLower.includes('chicago')) {
         jurisdiction = 'Chicago, Illinois';
-      } else if (textLower.includes('massachusetts') || textLower.includes(' ma ')) {
+      } else if (textLower.includes('massachusetts') && textLower.includes('boston')) {
         jurisdiction = 'Boston, Massachusetts';
-      } else if (textLower.includes('washington') && textLower.includes('wa ')) {
-        // Washington state (not DC)
+      } else if (textLower.includes('washington') && textLower.includes('seattle')) {
         jurisdiction = 'Seattle, Washington';
       }
+      // If no strong match, keep default (Washington, DC)
     }
     
     const flags = detectRisksWithRAG(pdfText, jurisdiction);
