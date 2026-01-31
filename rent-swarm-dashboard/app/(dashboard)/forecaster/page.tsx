@@ -29,6 +29,7 @@ export default function ForecasterPage() {
   const [remcData, setRemcData] = useState<REMCData | null>(null);
   const [remcResult, setRemcResult] = useState<REMCResult | null>(null);
   const [destination, setDestination] = useState("");
+  const [isCalculating, setIsCalculating] = useState(false);
 
   // Initialize data from URL parameters or default
   useEffect(() => {
@@ -67,6 +68,37 @@ export default function ForecasterPage() {
       setRemcResult(calculateREMC(initialData));
     }
   }, [searchParams]);
+
+  const handleCalculateCommute = async () => {
+    if (!remcData || !destination) return;
+
+    setIsCalculating(true);
+    try {
+      const response = await fetch('/api/commute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: remcData.listing.address + ", " + remcData.listing.city,
+          destination,
+          mode: 'driving'
+        }),
+      });
+
+      if (response.ok) {
+        const commuteCost = await response.json();
+        const updatedData = {
+          ...remcData,
+          commute: commuteCost
+        };
+        setRemcData(updatedData);
+        setRemcResult(calculateREMC(updatedData));
+      }
+    } catch (error) {
+      console.error("Failed to calculate commute", error);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
 
   if (!remcData || !remcResult) {
     return (
@@ -361,9 +393,22 @@ export default function ForecasterPage() {
               </div>
             </div>
 
-            <Button className="mt-4 w-full font-mono text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50" disabled={!destination}>
-              <MapPin className="mr-2 h-4 w-4" />
-              CALCULATE ROUTE
+            <Button
+              className="mt-4 w-full font-mono text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              disabled={!destination || isCalculating}
+              onClick={handleCalculateCommute}
+            >
+              {isCalculating ? (
+                <>
+                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  CALCULATING...
+                </>
+              ) : (
+                <>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  CALCULATE ROUTE
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -380,7 +425,7 @@ export default function ForecasterPage() {
             <div className="space-y-3">
               {remcData.fees.items.map((fee) => {
                 const IconComponent = fee.name.includes('Trash') ? Trash2 :
-                                     fee.name.includes('Package') ? Package : FileText;
+                  fee.name.includes('Package') ? Package : FileText;
 
                 return (
                   <div

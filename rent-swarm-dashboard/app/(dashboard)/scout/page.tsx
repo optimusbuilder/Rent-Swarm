@@ -25,8 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
+import { useScoutContext } from "@/app/context/scout-context";
 
-// Mock listing data
+// Mock listing data (optional fallback)
 const mockListings = [
   {
     id: 1,
@@ -61,93 +62,22 @@ function getScamScoreColor(score: number) {
 }
 
 export default function ScoutPage() {
-  const [searchCity, setSearchCity] = useState("San Francisco, CA");
-  const [maxBudget, setMaxBudget] = useState("3000");
-  const [minBudget, setMinBudget] = useState("1500");
-  const [bedrooms, setBedrooms] = useState("any");
-  const [isScanning, setIsScanning] = useState(false); // UI loading state
-  const [listings, setListings] = useState(mockListings);
+  const {
+    listings,
+    isScanning,
+    isScouting,
+    logs,
+    screenshot,
+    liveUrl,
+    sessionId,
+    searchCity, setSearchCity,
+    minBudget, setMinBudget,
+    maxBudget, setMaxBudget,
+    bedrooms, setBedrooms,
+    deployScout
+  } = useScoutContext();
 
-  // Scout Agent State
-  const [isScouting, setIsScouting] = useState(false);
-  const [liveUrl, setLiveUrl] = useState<string | null>(null);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  const handleDeployScout = async () => {
-    setIsScouting(true);
-    setIsScanning(true); // Show local scanning UI too
-    setLogs([]);
-    setLiveUrl(null);
-    setScreenshot(null);
-    setSessionId(null);
-
-    try {
-      const response = await fetch('/api/scout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          city: searchCity,
-          price: Number(maxBudget),
-          beds: bedrooms === "any" ? 2 : Number(bedrooms)
-        }),
-      });
-
-      if (!response.body) return;
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value);
-        const lines = text.split('\n');
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const data = JSON.parse(line);
-            if (data.type === 'init') {
-              setLiveUrl(data.liveUrl);
-              setSessionId(data.sessionId);
-              setLogs(prev => [...prev, `Session Started: ${data.sessionId}`]);
-            } else if (data.type === 'log') {
-              setLogs(prev => [...prev, data.message]);
-            } else if (data.type === 'error') {
-              setLogs(prev => [...prev, `Error: ${data.message}`]);
-            } else if (data.type === 'complete') {
-              setLogs(prev => [...prev, data.message]);
-            } else if (data.type === 'listings') {
-              setLogs(prev => [...prev, `Received ${data.data.length} listings from agent`]);
-              // 1. Sort by Scam Score (Green -> Red)
-              // 2. Use real images if available (Gemini/Puppeteer now provides them)
-              const sorted = data.data.sort((a: any, b: any) => a.scamScore - b.scamScore);
-
-              setListings(sorted.map((l: any) => ({
-                ...l,
-                // Use the custom house placeholder since we aren't scraping images
-                image: l.image && l.image.length > 5 ? l.image : "/house-placeholder.jpg",
-              })));
-            } else if (data.type === 'screenshot') {
-              setScreenshot(data.data);
-            }
-          } catch (e) {
-            console.error("Error parsing stream:", e);
-          }
-        }
-      }
-
-    } catch (error) {
-      console.error("Scouting failed:", error);
-      setLogs(prev => [...prev, "Failed to start scouting agent."]);
-    } finally {
-      setIsScanning(false);
-      // We keep isScouting true to show the results/logs
-    }
-  };
+  // Note: All local state has been moved to ScoutContext for persistence.
 
   return (
     <div className="flex h-screen overflow-hidden flex-col lg:flex-row">
@@ -214,7 +144,7 @@ export default function ScoutPage() {
 
           {/* Deploy Button */}
           <Button
-            onClick={handleDeployScout}
+            onClick={deployScout}
             disabled={isScanning}
             className="mt-4 w-full font-mono text-sm h-12 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             size="lg"
@@ -365,9 +295,9 @@ export default function ScoutPage() {
                           size="sm"
                           className="h-7 flex-1 font-mono text-[10px]"
                         >
-                          <Link href={`/forecaster?listingId=${listing.id}&price=${listing.price}&address=${encodeURIComponent(listing.address)}&city=${encodeURIComponent(listing.city)}&beds=${listing.beds}&baths=${listing.baths}&sqft=${listing.sqft}`}>
-                            <TrendingUp className="mr-1 h-3 w-3" />
-                            FORECAST
+                          <Link href="/lawyer">
+                            <Scale className="mr-1 h-3 w-3" />
+                            ANALYZE
                           </Link>
                         </Button>
                         <Button
@@ -376,9 +306,22 @@ export default function ScoutPage() {
                           size="sm"
                           className="h-7 flex-1 font-mono text-[10px] bg-transparent"
                         >
-                          <Link href="/lawyer">
-                            <Scale className="mr-1 h-3 w-3" />
-                            ANALYZE
+                          <Link
+                            href={{
+                              pathname: '/forecaster',
+                              query: {
+                                listingId: listing.id,
+                                price: listing.price,
+                                address: listing.address,
+                                city: listing.city,
+                                beds: listing.beds,
+                                baths: listing.baths,
+                                sqft: listing.sqft
+                              }
+                            }}
+                          >
+                            <TrendingUp className="mr-1 h-3 w-3" />
+                            FORECAST
                           </Link>
                         </Button>
                         <Button
