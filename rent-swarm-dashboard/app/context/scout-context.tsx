@@ -2,33 +2,8 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-// Mock listing data (still used as initial state or fallback)
-const mockListings = [
-    {
-        id: 1,
-        image: "/house-placeholder.jpg",
-        price: 2450,
-        address: "1847 Market St, Apt 4B",
-        city: "San Francisco, CA",
-        beds: 2,
-        baths: 1,
-        sqft: 850,
-        scamScore: 12,
-        verified: true,
-    },
-    {
-        id: 2,
-        image: "/house-placeholder.jpg",
-        price: 1850,
-        address: "523 Valencia St, Unit 2",
-        city: "San Francisco, CA",
-        beds: 1,
-        baths: 1,
-        sqft: 620,
-        scamScore: 78,
-        verified: false,
-    },
-];
+// Mock listing data removed
+
 
 interface Listing {
     id: number;
@@ -68,6 +43,10 @@ interface ScoutContextType {
 
     // Actions
     deployScout: () => Promise<void>;
+
+    // Bookmarks
+    bookmarks: Listing[];
+    toggleBookmark: (listing: Listing) => void;
 }
 
 const ScoutContext = createContext<ScoutContextType | undefined>(undefined);
@@ -80,7 +59,7 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
     const [bedrooms, setBedrooms] = useState("any");
 
     const [isScanning, setIsScanning] = useState(false);
-    const [listings, setListings] = useState<Listing[]>(mockListings); // Persist existing listings
+    const [listings, setListings] = useState<Listing[]>([]); // Start with empty listings
 
     // Scout Agent State
     const [isScouting, setIsScouting] = useState(false);
@@ -88,6 +67,37 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
     const [screenshot, setScreenshot] = useState<string | null>(null);
     const [logs, setLogs] = useState<string[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
+
+    // Bookmarks State
+    const [bookmarks, setBookmarks] = useState<Listing[]>([]);
+
+    // Load from localStorage on mount (Client-side only)
+    React.useEffect(() => {
+        const saved = localStorage.getItem('rent-swarm-bookmarks');
+        if (saved) {
+            try {
+                setBookmarks(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse bookmarks", e);
+            }
+        }
+    }, []);
+
+    // Save to localStorage on change
+    React.useEffect(() => {
+        localStorage.setItem('rent-swarm-bookmarks', JSON.stringify(bookmarks));
+    }, [bookmarks]);
+
+    const toggleBookmark = (listing: Listing) => {
+        setBookmarks(prev => {
+            const exists = prev.find(b => b.id === listing.id);
+            if (exists) {
+                return prev.filter(b => b.id !== listing.id);
+            } else {
+                return [...prev, { ...listing, savedAt: new Date().toLocaleDateString() }];
+            }
+        });
+    };
 
     // --- Logic from page.tsx ---
     const deployScout = async () => {
@@ -114,54 +124,66 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = '';
+
+            const processLine = (line: string) => {
+                if (!line.trim()) return;
+                try {
+                    const data = JSON.parse(line);
+
+                    if (data.type === 'init') {
+                        setLiveUrl(data.liveUrl);
+                        setSessionId(data.sessionId);
+                        setLogs(prev => [...prev, `Session Started: ${data.sessionId}`]);
+
+                    } else if (data.type === 'log') {
+                        setLogs(prev => [...prev, data.message]);
+
+                    } else if (data.type === 'error') {
+                        setLogs(prev => [...prev, `Error: ${data.message}`]);
+
+                    } else if (data.type === 'complete') {
+                        setLogs(prev => [...prev, data.message]);
+                        setIsScanning(false); // Stop scanning spinner when complete
+
+                    } else if (data.type === 'listings') {
+                        setLogs(prev => [...prev, `Received ${data.data.length} listings from agent`]);
+
+                        // Sort and format listings
+                        const sorted = data.data.sort((a: any, b: any) => a.scamScore - b.scamScore);
+
+                        // We use "any" casting effectively because API return type is loose
+                        setListings(sorted.map((l: any) => ({
+                            ...l,
+                            // Use the custom house placeholder since we aren't scraping images
+                            image: l.image && l.image.length > 5 ? l.image : "/house-placeholder.jpg",
+                        })));
+
+                    } else if (data.type === 'screenshot') {
+                        setScreenshot(data.data);
+                    }
+                } catch (e) {
+                    console.error("Error parsing stream:", e);
+                }
+            };
 
             while (true) {
                 const { value, done } = await reader.read();
-                if (done) break;
 
-                const text = decoder.decode(value);
-                const lines = text.split('\n');
-
-                for (const line of lines) {
-                    if (!line.trim()) continue;
-                    try {
-                        const data = JSON.parse(line);
-
-                        if (data.type === 'init') {
-                            setLiveUrl(data.liveUrl);
-                            setSessionId(data.sessionId);
-                            setLogs(prev => [...prev, `Session Started: ${data.sessionId}`]);
-
-                        } else if (data.type === 'log') {
-                            setLogs(prev => [...prev, data.message]);
-
-                        } else if (data.type === 'error') {
-                            setLogs(prev => [...prev, `Error: ${data.message}`]);
-
-                        } else if (data.type === 'complete') {
-                            setLogs(prev => [...prev, data.message]);
-                            setIsScanning(false); // Stop scanning spinner when complete
-
-                        } else if (data.type === 'listings') {
-                            setLogs(prev => [...prev, `Received ${data.data.length} listings from agent`]);
-
-                            // Sort and format listings
-                            const sorted = data.data.sort((a: any, b: any) => a.scamScore - b.scamScore);
-
-                            // We use "any" casting effectively because API return type is loose
-                            setListings(sorted.map((l: any) => ({
-                                ...l,
-                                // Use the custom house placeholder since we aren't scraping images
-                                image: l.image && l.image.length > 5 ? l.image : "/house-placeholder.jpg",
-                            })));
-
-                        } else if (data.type === 'screenshot') {
-                            setScreenshot(data.data);
-                        }
-                    } catch (e) {
-                        console.error("Error parsing stream:", e);
-                    }
+                if (value) {
+                    buffer += decoder.decode(value, { stream: true });
                 }
+
+                if (done) {
+                    if (buffer.trim()) processLine(buffer);
+                    break;
+                }
+
+                const lines = buffer.split('\n');
+                // Keep the last line in the buffer as it might be incomplete
+                buffer = lines.pop() || '';
+
+                lines.forEach(processLine);
             }
 
         } catch (error) {
@@ -178,13 +200,15 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
             screenshot,
             liveUrl,
             sessionId,
+            bookmarks,
             isScanning,
             isScouting,
             searchCity, setSearchCity,
             minBudget, setMinBudget,
             maxBudget, setMaxBudget,
             bedrooms, setBedrooms,
-            deployScout
+            deployScout,
+            toggleBookmark
         }}>
             {children}
         </ScoutContext.Provider>

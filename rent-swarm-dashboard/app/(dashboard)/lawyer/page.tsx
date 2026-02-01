@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { VoicePlayer } from "@/components/voice-player";
 
 interface LegalReference {
   title: string;
@@ -95,7 +96,7 @@ export default function LawyerPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      
+
       // Add jurisdiction if manually selected (skip if 'auto')
       if (selectedJurisdiction && selectedJurisdiction !== 'auto') {
         formData.append("jurisdiction", selectedJurisdiction);
@@ -113,7 +114,7 @@ export default function LawyerPage() {
 
       const result: AnalysisResult = await response.json();
       setAnalysis(result);
-      
+
       // Display the extracted PDF text
       setLeaseText(result.extractedText || "PDF content extracted and analyzed.");
     } catch (err) {
@@ -226,6 +227,10 @@ export default function LawyerPage() {
                     {analysis.flags.length} {analysis.flags.length === 1 ? "issue" : "issues"} detected
                   </p>
                 </div>
+                {/* Voice Feature */}
+                <VoicePlayer
+                  text={`Lease Analysis Summary. We found ${analysis.flags.length} potential issues. ${analysis.summary}`}
+                />
               </div>
             </div>
 

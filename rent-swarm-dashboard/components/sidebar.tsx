@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Scale, BadgeDollarSign, TrendingUp, Zap, Activity, Menu, X } from "lucide-react";
+import { Link as LinkIcon, Search, Scale, BadgeDollarSign, TrendingUp, Zap, Activity, Bookmark, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +31,18 @@ const navItems = [
     href: "/negotiate",
     icon: BadgeDollarSign,
     description: "Negotiation",
+  },
+  {
+    name: "Bookmarks",
+    href: "/bookmarks",
+    icon: Bookmark,
+    description: "Saved Listings",
+  },
+  {
+    name: "Chats",
+    href: "/chat",
+    icon: MessageSquare,
+    description: "Agent History",
   },
 ];
 
