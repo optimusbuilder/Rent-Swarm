@@ -2,23 +2,80 @@
 
 This directory contains the deployment configuration for the Rent Swarm application using Docker and Caddy.
 
+## 📚 Documentation
+
+- **[EC2_DEPLOYMENT_GUIDE.md](./EC2_DEPLOYMENT_GUIDE.md)** - Complete step-by-step guide for deploying to AWS EC2
+- **[QUICK_START.md](./QUICK_START.md)** - Condensed quick reference for deployment
+- **[README.md](./README.md)** - This file - Docker and Caddy configuration reference
+
+## 🚀 Quick Deploy to EC2
+
+1. **Launch EC2 instance** (Ubuntu 22.04, t2.small minimum)
+2. **Run setup script**:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/Rent-Swarm/main/deployment/setup-server.sh | bash
+   ```
+3. **Configure DNS** - Point `api.rent-swarm.tech` to your EC2 IP
+4. **Clone repo and deploy**:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/Rent-Swarm.git
+   cd Rent-Swarm/rent-swarm-dashboard
+   cp .env.example .env
+   nano .env  # Add your environment variables
+   cd ../deployment
+   docker-compose up -d --build
+   ```
+
+For detailed instructions, see [EC2_DEPLOYMENT_GUIDE.md](./EC2_DEPLOYMENT_GUIDE.md).
+
 ## Prerequisites
 
 - Docker and Docker Compose installed on your server
-- Domain name (rent-swarm.tech) pointing to your server's IP address
+- Domain name (api.rent-swarm.tech) pointing to your server's IP address
 - Port 80 and 443 open on your server firewall
 
 ## Project Structure
 
 ```
 deployment/
-├── Caddyfile              # Caddy reverse proxy configuration
-├── docker-compose.yml     # Docker Compose orchestration
-└── README.md             # This file
+├── Caddyfile                    # Caddy reverse proxy configuration
+├── docker-compose.yml           # Docker Compose orchestration
+├── EC2_DEPLOYMENT_GUIDE.md      # Complete EC2 deployment guide
+├── QUICK_START.md               # Quick reference guide
+├── README.md                    # This file
+├── setup-server.sh              # Automated server setup script
+└── update-app.sh                # Application update script
 
 rent-swarm-dashboard/
-├── Dockerfile            # Next.js application Docker image
-└── .dockerignore         # Files to exclude from Docker build
+├── Dockerfile                   # Next.js application Docker image
+├── .dockerignore                # Files to exclude from Docker build
+└── .env.example                 # Example environment variables
+
+.github/workflows/
+└── deploy.yml.example           # GitHub Actions CI/CD template
+```
+
+## 🛠️ Helper Scripts
+
+### `setup-server.sh`
+Automates initial EC2 server setup:
+- Installs Docker and Docker Compose
+- Installs Git
+- Configures UFW firewall
+- Sets up automatic security updates
+
+```bash
+./setup-server.sh
+```
+
+### `update-app.sh`
+Updates and redeploys the application:
+- Pulls latest code from Git
+- Rebuilds Docker images
+- Restarts services
+
+```bash
+./update-app.sh
 ```
 
 ## Configuration

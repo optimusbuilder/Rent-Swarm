@@ -1,0 +1,75 @@
+name: Deploy to EC2
+
+# This is an EXAMPLE workflow for CI/CD deployment to EC2
+# To use this:
+# 1. Rename this file to deploy.yml (remove .example)
+# 2. Set up GitHub Secrets in your repository settings
+# 3. Uncomment and configure the workflow triggers
+
+# Uncomment to enable automatic deployment on push to main
+# on:
+#   push:
+#     branches: [ main ]
+#   workflow_dispatch:  # Allow manual trigger
+
+# Uncomment to use the workflow
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     name: Deploy to Production
+#
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#
+#       - name: Configure SSH
+#         run: |
+#           mkdir -p ~/.ssh
+#           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+#           chmod 600 ~/.ssh/deploy_key
+#           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+#
+#       - name: Deploy to EC2
+#         env:
+#           EC2_HOST: ${{ secrets.EC2_HOST }}
+#           EC2_USER: ${{ secrets.EC2_USER }}
+#         run: |
+#           ssh -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << 'ENDSSH'
+#             cd ~/Rent-Swarm
+#             git pull origin main
+#             cd deployment
+#             docker-compose down
+#             docker-compose up -d --build
+#             docker-compose ps
+#           ENDSSH
+#
+#       - name: Verify deployment
+#         run: |
+#           sleep 10
+#           curl -f https://api.rent-swarm.tech || exit 1
+#
+#       - name: Notify deployment status
+#         if: always()
+#         run: |
+#           if [ ${{ job.status }} == 'success' ]; then
+#             echo "✅ Deployment successful!"
+#           else
+#             echo "❌ Deployment failed!"
+#           fi
+
+# Required GitHub Secrets:
+# - EC2_SSH_KEY: Your EC2 private key (contents of .pem file)
+# - EC2_HOST: Your EC2 public IP or domain (e.g., api.rent-swarm.tech)
+# - EC2_USER: SSH username (usually 'ubuntu' for Ubuntu instances)
+#
+# To add secrets:
+# 1. Go to your GitHub repository
+# 2. Settings → Secrets and variables → Actions
+# 3. Click "New repository secret"
+# 4. Add each secret with its value
+#
+# Optional: Add environment variables as secrets if needed
+# - GEMINI_API_KEY
+# - BROWSERBASE_API_KEY
+# - BROWSERBASE_PROJECT_ID
+# Then copy them to the .env file during deployment

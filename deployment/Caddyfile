@@ -1,9 +1,11 @@
-# Caddyfile for rent-swarm.tech
+# Caddyfile for api.rent-swarm.tech
 # Caddy automatically handles HTTPS with Let's Encrypt
 
-rent-swarm.tech {
+api.rent-swarm.tech {
     # Reverse proxy to Next.js application
-    reverse_proxy localhost:3000 {
+    # Note: Use 'nextjs' (Docker service name) when running in docker-compose
+    # Use 'localhost' for local development outside of Docker
+    reverse_proxy nextjs:3000 {
         # Health check configuration
         header_up Host {host}
         header_up X-Real-IP {remote}
@@ -37,6 +39,6 @@ rent-swarm.tech {
 }
 
 # Optional: Redirect www to non-www
-www.rent-swarm.tech {
-    redir https://rent-swarm.tech{uri} permanent
+www.api.rent-swarm.tech {
+    redir https://api.rent-swarm.tech{uri} permanent
 }
