@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFParse } from 'pdf-parse';
+// import { PDFParse } from 'pdf-parse';
 import { getAllLegalSections } from '@/lib/rag/legal-references';
 import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
 
@@ -54,7 +54,7 @@ const RISK_PATTERNS = [
 function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
   const flags: RiskFlag[] = [];
   const legalSections = getAllLegalSections(jurisdiction);
-  
+
   // Chunk the lease text for analysis
   const chunks = chunkLeaseText(text, 500);
   const processedSections = new Set<string>(); // Avoid duplicate flags for same legal section
@@ -73,17 +73,17 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
       // Determine severity based on score AND confidence
       // Be more conservative - only flag high-confidence matches
       let severity: 'high' | 'warning' | 'info' = 'warning';
-      
+
       // Skip low confidence matches entirely - too sensitive otherwise
       if (match.confidence === 'low') {
         continue;
       }
-      
+
       // Only include medium confidence if excerpt is clearly relevant
       if (match.confidence === 'medium' && !match.excerptRelevant) {
         continue;
       }
-      
+
       // Set severity based on score for high/medium confidence matches
       if (match.confidence === 'high') {
         severity = match.score >= 18 ? 'high' : 'warning'; // Higher bar for 'high' severity
@@ -92,23 +92,23 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
       }
 
       // Extract a good excerpt from the chunk
-      const excerpt = match.matchedText.length > 300 
+      const excerpt = match.matchedText.length > 300
         ? match.matchedText.substring(0, 300) + '...'
         : match.matchedText;
 
       // Build context-aware explanation
       let explanation = '';
-      
+
       // Special handling for security deposit - be precise about actual violations
       if (match.section.id === 'security-deposit') {
         // Check if the excerpt mentions specific issues
         const excerptLower = excerpt.toLowerCase();
-        const mentionsAmount = excerptLower.includes('exceeds') || excerptLower.includes('one month') || 
-                              excerptLower.includes('more than');
+        const mentionsAmount = excerptLower.includes('exceeds') || excerptLower.includes('one month') ||
+          excerptLower.includes('more than');
         const mentionsDiscretion = excerptLower.includes('discretion') || excerptLower.includes('withhold') ||
-                                   excerptLower.includes('administrative');
+          excerptLower.includes('administrative');
         const mentionsMissingDisclosures = !excerptLower.includes('itemized') && !excerptLower.includes('escrow');
-        
+
         if (mentionsAmount) {
           explanation = `The lease requires a security deposit that exceeds one month's rent. ${match.section.text} Language allowing withholding at the landlord's discretion for broad categories may conflict with tenant protection rules.`;
         } else if (mentionsDiscretion) {
@@ -143,10 +143,10 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
 
   // Also run simple pattern matching as fallback
   const simpleFlags = detectRisksSimple(text);
-  
+
   // Merge flags, avoiding duplicates
   for (const simpleFlag of simpleFlags) {
-    const alreadyExists = flags.some(f => 
+    const alreadyExists = flags.some(f =>
       f.excerpt.toLowerCase().includes(simpleFlag.excerpt.toLowerCase().substring(0, 50))
     );
     if (!alreadyExists) {
@@ -155,7 +155,7 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
       if (simpleFlag.type === 'illegal_entry' || simpleFlag.type === 'deposit_risk') {
         severity = 'high';
       }
-      
+
       flags.push({
         ...simpleFlag,
         severity,
@@ -178,20 +178,20 @@ function detectRisksSimple(text: string): Omit<RiskFlag, 'severity' | 'legalRefe
     // Create a fresh regex for each check to avoid state issues
     const pattern = new RegExp(rule.pattern.source, rule.pattern.flags);
     const matches = text.match(pattern);
-    
+
     if (matches) {
       // Find the line containing the match and extract context
       for (let i = 0; i < lines.length; i++) {
         if (pattern.test(lines[i])) {
           // Extract a short excerpt (current line + next line if available)
           const excerpt = lines[i].trim() + (lines[i + 1] ? ' ' + lines[i + 1].trim() : '');
-          
+
           flags.push({
             type: rule.type,
             excerpt: excerpt.length > 200 ? excerpt.substring(0, 200) + '...' : excerpt,
             explanation: rule.explanation,
           });
-          
+
           // Only flag once per pattern
           break;
         }
@@ -230,10 +230,11 @@ export async function POST(request: NextRequest) {
     // Extract text from PDF
     let pdfText: string;
     try {
-      const pdfParser = new PDFParse({ data: buffer });
-      const textResult = await pdfParser.getText();
-      pdfText = textResult.text;
-      await pdfParser.destroy();
+      // pdf-parse is a CommonJS module, so we use require or default import
+      // @ts-ignore
+      const pdf = require('pdf-parse');
+      const data = await pdf(buffer);
+      pdfText = data.text;
     } catch (parseError) {
       console.error('PDF Parse Error Details:', {
         error: parseError,
@@ -261,6 +262,7 @@ export async function POST(request: NextRequest) {
     // Detect risks using RAG (Retrieval-Augmented Generation)
     // Get jurisdiction from query params or form data
     const jurisdictionParam = formData.get('jurisdiction') as string | null;
+<<<<<<< Updated upstream
     let jurisdiction: string | undefined = undefined;
     
     // If jurisdiction is explicitly provided and not 'auto', use it
@@ -269,10 +271,15 @@ export async function POST(request: NextRequest) {
     }
     
     // Try to auto-detect jurisdiction from lease text if not provided or 'auto' was selected
+=======
+    let jurisdiction = jurisdictionParam ? String(jurisdictionParam) : 'Washington, DC';
+
+    // Try to auto-detect jurisdiction from lease text if not provided
+>>>>>>> Stashed changes
     // Always return in "City, State" format when possible
     if (!jurisdiction) {
       const textLower = pdfText.toLowerCase();
-      
+
       // City-specific detection (more specific first) - require actual city mentions
       // Check for city names first, then city+state combinations
       // AUSTIN DETECTION - HIGHEST PRIORITY (check first, before anything else)
@@ -328,11 +335,15 @@ export async function POST(request: NextRequest) {
       }
       // If no strong match, leave jurisdiction undefined (will use all legal sections)
     }
+<<<<<<< Updated upstream
     
     // Debug: log the jurisdiction being used
     console.log('🔍 Detected jurisdiction:', jurisdiction);
     console.log('🔍 Jurisdiction type:', typeof jurisdiction);
     
+=======
+
+>>>>>>> Stashed changes
     const flags = detectRisksWithRAG(pdfText, jurisdiction);
 
     // Build response
