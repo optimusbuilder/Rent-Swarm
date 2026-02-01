@@ -127,7 +127,7 @@ export default function NegotiatePage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b border-border bg-background px-6 py-4">
+      <header className="border-b border-border bg-background px-4 md:px-6 py-4">
         <div className="flex items-center gap-2">
           <BadgeDollarSign className="h-5 w-5 text-primary" />
           <h1 className="font-mono text-lg font-bold">THE HAGGLER</h1>
@@ -137,7 +137,7 @@ export default function NegotiatePage() {
         </p>
       </header>
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left Column: Apartment Summary + Metrics */}
           <div className="space-y-6">
@@ -268,7 +268,7 @@ export default function NegotiatePage() {
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
-                    className="font-mono text-xs"
+                    className="font-mono text-xs transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                     onClick={handleCopy}
                   >
                     {copied ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   MapPin,
@@ -84,11 +84,11 @@ export default function ScoutPage() {
   // Note: All local state has been moved to ScoutContext for persistence.
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden flex-col lg:flex-row">
       {/* Left Panel - Control Center (60%) */}
-      <div className="flex w-[60%] flex-col border-r border-border">
+      <div className="flex w-full lg:w-[60%] flex-col border-r border-border">
         {/* Header with Search Controls */}
-        <header className="shrink-0 border-b border-border bg-card p-4">
+        <header className="shrink-0 border-b border-border bg-card p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Search className="h-5 w-5 text-primary" />
             <h1 className="font-mono text-lg font-bold tracking-tight">
@@ -100,7 +100,7 @@ export default function ScoutPage() {
           </div>
 
           {/* Search Inputs Row */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -150,7 +150,7 @@ export default function ScoutPage() {
           <Button
             onClick={deployScout}
             disabled={isScanning}
-            className="mt-4 w-full font-mono text-sm h-12"
+            className="mt-4 w-full font-mono text-sm h-12 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             size="lg"
           >
             {isScanning ? (
@@ -196,10 +196,11 @@ export default function ScoutPage() {
         {/* Results Area - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4">
           {isScanning && listings.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center">
+            <div className="flex h-full flex-col items-center justify-center animate-in fade-in duration-500">
               <div className="relative">
                 <div className="h-16 w-16 rounded-full border-2 border-primary/30" />
                 <div className="absolute inset-0 h-16 w-16 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <div className="absolute inset-0 h-16 w-16 rounded-full border-2 border-primary/20 border-r-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
               </div>
               <p className="mt-4 font-mono text-sm text-primary animate-pulse">
                 SCANNING LISTINGS...
@@ -209,8 +210,11 @@ export default function ScoutPage() {
               </p>
             </div>
           ) : listings.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <Search className="h-12 w-12 text-muted-foreground/50" />
+            <div className="flex h-full flex-col items-center justify-center text-center animate-in fade-in duration-500">
+              <div className="relative">
+                <Search className="h-12 w-12 text-muted-foreground/50 animate-pulse" />
+                <div className="absolute inset-0 h-12 w-12 rounded-full border-2 border-primary/20 animate-ping" />
+              </div>
               <p className="mt-4 font-mono text-sm text-muted-foreground">
                 No listings yet
               </p>
@@ -234,7 +238,7 @@ export default function ScoutPage() {
       </div>
 
       {/* Right Panel - Live Agent View (40%) */}
-      <div className="flex w-[40%] flex-col bg-background">
+      <div className="flex w-full lg:w-[40%] flex-col bg-background border-t lg:border-t-0 border-border">
         {/* Terminal Header */}
         <header className="shrink-0 border-b border-border bg-card px-4 py-3">
           <div className="flex items-center gap-3">
@@ -346,10 +350,10 @@ function TimestampDisplay() {
   const [time, setTime] = useState(new Date());
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: interval timer
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
-  });
+  }, []);
 
   return (
     <span suppressHydrationWarning>

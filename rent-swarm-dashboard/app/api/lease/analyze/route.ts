@@ -132,7 +132,7 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
           title: match.section.title,
           text: match.section.text,
           // Use the actual jurisdiction from the matched legal section, not the overall detected jurisdiction
-          jurisdiction: match.sectionJurisdiction || jurisdiction || 'Washington, DC',
+          jurisdiction: match.sectionJurisdiction || jurisdiction || 'Unknown',
         },
         severity,
       });
@@ -259,20 +259,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Detect risks using RAG (Retrieval-Augmented Generation)
-    // Get jurisdiction from query params or form data (defaults to DC)
+    // Get jurisdiction from query params or form data
     const jurisdictionParam = formData.get('jurisdiction') as string | null;
-    let jurisdiction = jurisdictionParam ? String(jurisdictionParam) : 'Washington, DC';
+    let jurisdiction: string | undefined = undefined;
     
-    // Try to auto-detect jurisdiction from lease text if not provided
+    // If jurisdiction is explicitly provided and not 'auto', use it
+    if (jurisdictionParam && jurisdictionParam !== 'auto' && jurisdictionParam.trim() !== '') {
+      jurisdiction = String(jurisdictionParam);
+    }
+    
+    // Try to auto-detect jurisdiction from lease text if not provided or 'auto' was selected
     // Always return in "City, State" format when possible
-    // Be conservative - only detect if there's a strong signal (city name or city+state combo)
-    if (!jurisdictionParam) {
+    if (!jurisdiction) {
       const textLower = pdfText.toLowerCase();
       
       // City-specific detection (more specific first) - require actual city mentions
       // Check for city names first, then city+state combinations
-      if (textLower.includes('austin') && (textLower.includes('texas') || textLower.includes(' tx '))) {
+      // AUSTIN DETECTION - HIGHEST PRIORITY (check first, before anything else)
+      if (textLower.includes('austin')) {
+        // If Austin is mentioned, assume it's Austin, Texas (most common case)
         jurisdiction = 'Austin, Texas';
+        console.log('✅ AUSTIN DETECTED - Setting jurisdiction to Austin, Texas');
       } else if (textLower.includes('chicago') && (textLower.includes('illinois') || textLower.includes(' il '))) {
         jurisdiction = 'Chicago, Illinois';
       } else if (textLower.includes('chicago')) {
@@ -319,8 +326,12 @@ export async function POST(request: NextRequest) {
       } else if (textLower.includes('washington') && textLower.includes('seattle')) {
         jurisdiction = 'Seattle, Washington';
       }
-      // If no strong match, keep default (Washington, DC)
+      // If no strong match, leave jurisdiction undefined (will use all legal sections)
     }
+    
+    // Debug: log the jurisdiction being used
+    console.log('🔍 Detected jurisdiction:', jurisdiction);
+    console.log('🔍 Jurisdiction type:', typeof jurisdiction);
     
     const flags = detectRisksWithRAG(pdfText, jurisdiction);
 

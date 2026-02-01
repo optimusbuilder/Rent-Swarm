@@ -335,7 +335,8 @@ export function findRelevantLegalSections(
         );
 
         // Get the actual jurisdiction for this legal section
-        const sectionJurisdiction = getJurisdictionForSection(section.id) || 'Unknown';
+        // Use the jurisdiction stored on the section itself, or fall back to lookup
+        const sectionJurisdiction = section.jurisdiction || getJurisdictionForSection(section.id) || 'Unknown';
         
         results.push({
           section,

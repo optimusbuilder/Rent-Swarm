@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Link as LinkIcon, Search, Scale, BadgeDollarSign, TrendingUp, Zap, Activity, Bookmark, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   {
@@ -46,9 +48,38 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
+    <>
+      {/* Mobile Menu Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed left-4 top-4 z-50 md:hidden"
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+      >
+        {isMobileOpen ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Menu className="h-5 w-5" />
+        )}
+      </Button>
+
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-in-out",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
@@ -75,10 +106,11 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setIsMobileOpen(false)}
               className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-3 transition-all duration-200",
+                "group flex items-center gap-3 rounded-lg px-3 py-3 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
+                  ? "bg-sidebar-accent text-sidebar-primary shadow-lg shadow-primary/10"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               )}
             >
@@ -129,5 +161,6 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }
