@@ -4,9 +4,12 @@ import { getAllLegalSections } from '@/lib/rag/legal-references';
 import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
 
 // Set max duration for this route (handles large PDFs)
+// Note: Vercel Pro plan allows up to 300s, Hobby plan is 10s
 export const maxDuration = 60;
 // Use Node.js runtime (not edge) for PDF parsing
 export const runtime = 'nodejs';
+// Allow larger request body for PDF uploads
+export const dynamic = 'force-dynamic';
 
 // Enhanced risk detection with RAG
 interface RiskFlag {
@@ -29,24 +32,7 @@ interface AnalysisResponse {
   extractedText?: string; // The actual extracted PDF text
 }
 
-// Risk detection rules
-const RISK_PATTERNS = [
-  {
-    type: 'illegal_entry',
-    pattern: /enter at any time/gi,
-    explanation: 'Landlords are usually required to give notice before entering a unit.',
-  },
-  {
-    type: 'auto_renewal',
-    pattern: /automatic renewal/gi,
-    explanation: 'Automatic renewal clauses can lock you into a lease without your explicit consent.',
-  },
-  {
-    type: 'deposit_risk',
-    pattern: /non-refundable deposit/gi,
-    explanation: 'Non-refundable deposits may not be legally enforceable in many jurisdictions.',
-  },
-];
+// Simple pattern matching removed - now using RAG exclusively with bad lease examples
 
 /**
  * Detect risks using RAG - compares lease text against legal references
@@ -59,10 +45,10 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
   const chunks = chunkLeaseText(text, 500);
   const processedSections = new Set<string>(); // Avoid duplicate flags for same legal section
 
-  // Analyze each chunk against legal references
+  // Analyze each chunk against legal references (now with bad lease examples)
   for (const chunk of chunks) {
     // Higher threshold to reduce false positives - only flag clear violations
-    const matches = findRelevantLegalSections(chunk, legalSections, 10); // Threshold of 10 (was 6)
+    const matches = findRelevantLegalSections(chunk, legalSections, 10, jurisdiction); // Threshold of 10 (was 6)
 
     for (const match of matches) {
       // Skip if we've already flagged this section
@@ -97,10 +83,13 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
         : match.matchedText;
 
       // Build context-aware explanation
+      // If we have a matching bad lease example, use its explanation as a starting point
       let explanation = '';
       
-      // Special handling for security deposit - be precise about actual violations
-      if (match.section.id === 'security-deposit') {
+      if (match.badLeaseExample) {
+        // Use the bad lease example explanation, but enhance it with legal reference
+        explanation = `${match.badLeaseExample.explanation} ${match.section.text}`;
+      } else if (match.section.id === 'security-deposit') {
         // Check if the excerpt mentions specific issues
         const excerptLower = excerpt.toLowerCase();
         const mentionsAmount = excerptLower.includes('exceeds') || excerptLower.includes('one month') || 
@@ -141,64 +130,6 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
     }
   }
 
-  // Also run simple pattern matching as fallback
-  const simpleFlags = detectRisksSimple(text);
-  
-  // Merge flags, avoiding duplicates
-  for (const simpleFlag of simpleFlags) {
-    const alreadyExists = flags.some(f => 
-      f.excerpt.toLowerCase().includes(simpleFlag.excerpt.toLowerCase().substring(0, 50))
-    );
-    if (!alreadyExists) {
-      // Determine severity for simple flags
-      let severity: 'high' | 'warning' | 'info' = 'warning';
-      if (simpleFlag.type === 'illegal_entry' || simpleFlag.type === 'deposit_risk') {
-        severity = 'high';
-      }
-      
-      flags.push({
-        ...simpleFlag,
-        severity,
-      });
-    }
-  }
-
-  return flags;
-}
-
-/**
- * Simple pattern-based risk detection (fallback)
- */
-function detectRisksSimple(text: string): Omit<RiskFlag, 'severity' | 'legalReference'>[] {
-  const flags: Omit<RiskFlag, 'severity' | 'legalReference'>[] = [];
-  const lines = text.split('\n');
-
-  // Check each risk pattern
-  for (const rule of RISK_PATTERNS) {
-    // Create a fresh regex for each check to avoid state issues
-    const pattern = new RegExp(rule.pattern.source, rule.pattern.flags);
-    const matches = text.match(pattern);
-    
-    if (matches) {
-      // Find the line containing the match and extract context
-      for (let i = 0; i < lines.length; i++) {
-        if (pattern.test(lines[i])) {
-          // Extract a short excerpt (current line + next line if available)
-          const excerpt = lines[i].trim() + (lines[i + 1] ? ' ' + lines[i + 1].trim() : '');
-          
-          flags.push({
-            type: rule.type,
-            excerpt: excerpt.length > 200 ? excerpt.substring(0, 200) + '...' : excerpt,
-            explanation: rule.explanation,
-          });
-          
-          // Only flag once per pattern
-          break;
-        }
-      }
-    }
-  }
-
   return flags;
 }
 
@@ -214,6 +145,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Check file size (limit to 10MB for production compatibility)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxFileSize) {
+      return NextResponse.json(
+        { error: `File size exceeds the maximum limit of 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB.` },
+        { status: 400 }
+      );
+    }
+
+    // Log file info for debugging (helpful for production issues)
+    console.log('📄 PDF Upload:', {
+      fileName: file.name,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      fileType: file.type,
+    });
 
     // Check if file is a PDF
     if (file.type !== 'application/pdf') {
@@ -357,8 +304,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error analyzing lease:', error);
+    
+    // Provide more detailed error messages for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('duration');
+    const isSizeLimit = errorMessage.includes('size') || errorMessage.includes('too large');
+    
+    if (isTimeout) {
+      return NextResponse.json(
+        { error: 'The PDF processing took too long. Please try with a smaller file or contact support if the issue persists.' },
+        { status: 504 }
+      );
+    }
+    
+    if (isSizeLimit) {
+      return NextResponse.json(
+        { error: 'File size is too large. Please upload a PDF file smaller than 10MB.' },
+        { status: 413 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'An unexpected error occurred while analyzing the lease.' },
+      { 
+        error: 'An unexpected error occurred while analyzing the lease.',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }

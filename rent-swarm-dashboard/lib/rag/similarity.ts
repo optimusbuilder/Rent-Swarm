@@ -1,9 +1,10 @@
 /**
  * Simple text similarity matching for RAG
  * Uses keyword matching and text overlap to find relevant legal clauses
+ * Now enhanced with bad lease examples for better matching
  */
 
-import { LegalSection, getJurisdictionForSection } from './legal-references';
+import { LegalSection, getJurisdictionForSection, BadLeaseExample, getBadLeaseExamples } from './legal-references';
 
 interface MatchResult {
   section: LegalSection;
@@ -13,19 +14,89 @@ interface MatchResult {
   matchedKeywords: string[];
   matchedText: string;
   excerptRelevant: boolean; // Whether the excerpt actually supports the violation claim
+  badLeaseExample?: BadLeaseExample; // Matched bad lease example if found
+}
+
+/**
+ * Calculate similarity between lease text and bad lease example
+ * Returns a score and the matched example if found
+ */
+function matchBadLeaseExample(
+  leaseText: string,
+  badExamples: BadLeaseExample[]
+): { score: number; example?: BadLeaseExample } {
+  const leaseLower = leaseText.toLowerCase();
+  let bestScore = 0;
+  let bestExample: BadLeaseExample | undefined;
+  
+  for (const example of badExamples) {
+    const exampleLower = example.excerpt.toLowerCase();
+    let exampleScore = 0;
+    
+    // Check for exact phrase matches from the example
+    const violationLower = example.violation.toLowerCase();
+    if (leaseLower.includes(violationLower)) {
+      exampleScore += 20; // High weight for exact violation phrase
+    }
+    
+    // Check for significant text overlap with the bad example excerpt
+    const exampleWords = exampleLower.split(/\s+/).filter(w => w.length > 4);
+    const matchingWords = exampleWords.filter(word => leaseLower.includes(word));
+    if (exampleWords.length > 0) {
+      const overlapRatio = matchingWords.length / exampleWords.length;
+      if (overlapRatio > 0.3) {
+        exampleScore += Math.floor(overlapRatio * 15); // Up to 15 points for overlap
+      }
+    }
+    
+    // Check for key phrases from the example
+    const keyPhrases = [
+      'at any time', 'without notice', 'no notice', 'at discretion',
+      'non-refundable', 'unilateral', 'waive', 'disclaims',
+      'automatically renew', 'renews automatically', 'tenant responsible for all',
+      'no warranty', 'exceeds one month'
+    ];
+    
+    for (const phrase of keyPhrases) {
+      if (exampleLower.includes(phrase) && leaseLower.includes(phrase)) {
+        exampleScore += 10; // High weight for matching key phrases
+      }
+    }
+    
+    if (exampleScore > bestScore) {
+      bestScore = exampleScore;
+      bestExample = example;
+    }
+  }
+  
+  return { score: bestScore, example: bestExample };
 }
 
 /**
  * Calculate enhanced similarity score between lease text and legal section
  * Uses multiple matching strategies for better accuracy
+ * Now also incorporates bad lease examples for improved matching
  */
 function calculateSimilarity(
   leaseText: string,
-  section: LegalSection
+  section: LegalSection,
+  badExamples?: BadLeaseExample[]
 ): number {
   const leaseLower = leaseText.toLowerCase();
   let score = 0;
   const matchedKeywords: string[] = [];
+  
+  // First, check if we have bad lease examples for this section type
+  if (badExamples && badExamples.length > 0) {
+    const relevantExamples = badExamples.filter(ex => ex.type === section.id || ex.type === 'general');
+    if (relevantExamples.length > 0) {
+      const badExampleMatch = matchBadLeaseExample(leaseText, relevantExamples);
+      if (badExampleMatch.score > 0) {
+        // Boost score if we found a matching bad lease example
+        score += Math.min(badExampleMatch.score, 25); // Cap at 25 points from bad examples
+      }
+    }
+  }
 
   // Strategy 1: Check for violation examples (highest weight - exact phrases)
   // More conservative: only exact or very close matches, and exclude legal requirement descriptions
@@ -309,17 +380,21 @@ function calculateConfidence(score: number, excerptRelevant: boolean): 'high' | 
 
 /**
  * Find relevant legal sections for a given lease text chunk
- * Now with confidence scoring and relevance checking
+ * Now with confidence scoring, relevance checking, and bad lease example matching
  */
 export function findRelevantLegalSections(
   leaseChunk: string,
   legalSections: LegalSection[],
-  threshold: number = 5
+  threshold: number = 5,
+  jurisdiction?: string
 ): MatchResult[] {
   const results: MatchResult[] = [];
+  
+  // Get bad lease examples for matching
+  const badExamples = getBadLeaseExamples(undefined, jurisdiction);
 
   for (const section of legalSections) {
-    const score = calculateSimilarity(leaseChunk, section);
+    const score = calculateSimilarity(leaseChunk, section, badExamples);
     if (score >= threshold) {
       const excerptRelevant = isExcerptRelevant(leaseChunk, section);
       const confidence = calculateConfidence(score, excerptRelevant);
@@ -338,6 +413,10 @@ export function findRelevantLegalSections(
         // Use the jurisdiction stored on the section itself, or fall back to lookup
         const sectionJurisdiction = section.jurisdiction || getJurisdictionForSection(section.id) || 'Unknown';
         
+        // Try to find a matching bad lease example for this section
+        const relevantBadExamples = badExamples.filter(ex => ex.type === section.id || ex.type === 'general');
+        const badExampleMatch = matchBadLeaseExample(leaseChunk, relevantBadExamples);
+        
         results.push({
           section,
           sectionJurisdiction,
@@ -346,6 +425,7 @@ export function findRelevantLegalSections(
           matchedKeywords: [...matchedKeywords, ...matchedExamples],
           matchedText: leaseChunk,
           excerptRelevant,
+          badLeaseExample: badExampleMatch.example,
         });
       }
     }

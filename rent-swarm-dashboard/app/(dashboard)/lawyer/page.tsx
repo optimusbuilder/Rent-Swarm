@@ -105,11 +105,34 @@ export default function LawyerPage() {
       const response = await fetch("/api/lease/analyze", {
         method: "POST",
         body: formData,
+        // Don't set Content-Type header - browser will set it with boundary for FormData
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to analyze lease");
+        let errorMessage = "Failed to analyze lease";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          
+          // Provide user-friendly error messages
+          if (response.status === 413) {
+            errorMessage = "File is too large. Please upload a PDF smaller than 10MB.";
+          } else if (response.status === 504) {
+            errorMessage = "Processing took too long. Please try with a smaller file.";
+          } else if (response.status === 400 && errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (e) {
+          // If response is not JSON, use status-based message
+          if (response.status === 413) {
+            errorMessage = "File is too large. Please upload a PDF smaller than 10MB.";
+          } else if (response.status === 504) {
+            errorMessage = "Processing took too long. Please try with a smaller file.";
+          } else {
+            errorMessage = `Server error (${response.status}). Please try again.`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const result: AnalysisResult = await response.json();

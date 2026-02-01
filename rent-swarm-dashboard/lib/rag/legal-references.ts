@@ -9,6 +9,7 @@ import texasTenantRights from '../legal-references/texas-tenant-rights.json';
 import chicagoTenantRights from '../legal-references/chicago-tenant-rights.json';
 import seattleTenantRights from '../legal-references/seattle-tenant-rights.json';
 import bostonTenantRights from '../legal-references/boston-tenant-rights.json';
+import badLeaseExamples from './bad-lease-examples.json';
 
 export interface LegalSection {
   id: string;
@@ -23,6 +24,15 @@ export interface LegalDocument {
   jurisdiction: string;
   title: string;
   sections: LegalSection[];
+}
+
+export interface BadLeaseExample {
+  id: string;
+  type: string;
+  excerpt: string;
+  violation: string;
+  explanation: string;
+  jurisdiction: string;
 }
 
 /**
@@ -155,5 +165,26 @@ export function getJurisdictionForSection(sectionId: string): string | undefined
 export function getLegalSectionById(id: string): LegalSection | undefined {
   const sections = getAllLegalSections();
   return sections.find((s) => s.id === id);
+}
+
+/**
+ * Get all bad lease examples for RAG matching
+ * Can be filtered by type or jurisdiction
+ */
+export function getBadLeaseExamples(type?: string, jurisdiction?: string): BadLeaseExample[] {
+  const examples = (badLeaseExamples as { badLeaseExamples: BadLeaseExample[] }).badLeaseExamples;
+  
+  let filtered = examples;
+  
+  if (type) {
+    filtered = filtered.filter(ex => ex.type === type || ex.type === 'general');
+  }
+  
+  if (jurisdiction && jurisdiction !== 'general') {
+    // For now, all examples are general, but we can filter by jurisdiction in the future
+    // filtered = filtered.filter(ex => ex.jurisdiction === jurisdiction || ex.jurisdiction === 'general');
+  }
+  
+  return filtered;
 }
 
