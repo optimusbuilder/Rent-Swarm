@@ -29,6 +29,7 @@ function ForecasterContent() {
   const [remcData, setRemcData] = useState<REMCData | null>(null);
   const [remcResult, setRemcResult] = useState<REMCResult | null>(null);
   const [destination, setDestination] = useState("");
+  const [isCalculating, setIsCalculating] = useState(false);
 
   // Initialize data from URL parameters or default
   useEffect(() => {
@@ -68,6 +69,37 @@ function ForecasterContent() {
     }
   }, [searchParams]);
 
+  const handleCalculateCommute = async () => {
+    if (!remcData || !destination) return;
+
+    setIsCalculating(true);
+    try {
+      const response = await fetch('/api/commute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: remcData.listing.address + ", " + remcData.listing.city,
+          destination,
+          mode: 'driving'
+        }),
+      });
+
+      if (response.ok) {
+        const commuteCost = await response.json();
+        const updatedData = {
+          ...remcData,
+          commute: commuteCost
+        };
+        setRemcData(updatedData);
+        setRemcResult(calculateREMC(updatedData));
+      }
+    } catch (error) {
+      console.error("Failed to calculate commute", error);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
   if (!remcData || !remcResult) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
@@ -84,7 +116,7 @@ function ForecasterContent() {
   const feesPercent = (remcResult.fees / totalRemc) * 100;
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-4 md:p-6">
       {/* Header */}
       <header className="mb-6 flex items-center gap-3">
         <TrendingUp className="h-6 w-6 text-primary" />
@@ -118,7 +150,7 @@ function ForecasterContent() {
       )}
 
       {/* Hero Section - The "Truth" Reveal */}
-      <Card className="mb-6 overflow-hidden border-border bg-card">
+      <Card className="mb-6 overflow-hidden border-border bg-card hover:shadow-lg transition-shadow duration-300">
         <CardContent className="p-0">
           <div className="flex items-stretch">
             {/* Advertised Rent */}
@@ -136,8 +168,8 @@ function ForecasterContent() {
 
             {/* Arrow */}
             <div className="flex items-center justify-center bg-gradient-to-r from-secondary/50 to-status-warning/10 px-6">
-              <div className="flex flex-col items-center gap-2">
-                <ArrowRight className="h-8 w-8 text-status-warning" />
+              <div className="flex flex-col items-center gap-2 animate-pulse">
+                <ArrowRight className="h-8 w-8 text-status-warning animate-bounce" />
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   Reality
                 </span>
@@ -283,7 +315,7 @@ function ForecasterContent() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Commute Calculator */}
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 font-mono text-sm">
               <Car className="h-4 w-4 text-primary" />
@@ -361,15 +393,28 @@ function ForecasterContent() {
               </div>
             </div>
 
-            <Button className="mt-4 w-full font-mono text-sm" disabled={!destination}>
-              <MapPin className="mr-2 h-4 w-4" />
-              CALCULATE ROUTE
+            <Button
+              className="mt-4 w-full font-mono text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              disabled={!destination || isCalculating}
+              onClick={handleCalculateCommute}
+            >
+              {isCalculating ? (
+                <>
+                  <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  CALCULATING...
+                </>
+              ) : (
+                <>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  CALCULATE ROUTE
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
 
         {/* Hidden Fee Detector */}
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 font-mono text-sm">
               <TriangleAlert className="h-4 w-4 text-status-warning" />
@@ -380,12 +425,12 @@ function ForecasterContent() {
             <div className="space-y-3">
               {remcData.fees.items.map((fee) => {
                 const IconComponent = fee.name.includes('Trash') ? Trash2 :
-                                     fee.name.includes('Package') ? Package : FileText;
+                  fee.name.includes('Package') ? Package : FileText;
 
                 return (
                   <div
                     key={fee.name}
-                    className="flex items-center justify-between rounded-lg border border-status-warning/20 bg-status-warning/5 p-4"
+                    className="flex items-center justify-between rounded-lg border border-status-warning/20 bg-status-warning/5 p-4 hover:bg-status-warning/10 transition-all duration-200 hover:scale-[1.02]"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-status-warning/10">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   MapPin,
@@ -25,8 +25,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
+import { useScoutContext } from "@/app/context/scout-context";
+import { ListingCard } from "@/components/listing-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Mock listing data
+// Mock listing data (optional fallback)
 const mockListings = [
   {
     id: 1,
@@ -61,100 +64,31 @@ function getScamScoreColor(score: number) {
 }
 
 export default function ScoutPage() {
-  const [searchCity, setSearchCity] = useState("San Francisco, CA");
-  const [maxBudget, setMaxBudget] = useState("3000");
-  const [minBudget, setMinBudget] = useState("1500");
-  const [bedrooms, setBedrooms] = useState("any");
-  const [isScanning, setIsScanning] = useState(false); // UI loading state
-  const [listings, setListings] = useState(mockListings);
+  const {
+    listings,
+    isScanning,
+    isScouting,
+    logs,
+    screenshot,
+    liveUrl,
+    sessionId,
+    searchCity, setSearchCity,
+    minBudget, setMinBudget,
+    maxBudget, setMaxBudget,
+    bedrooms, setBedrooms,
+    deployScout,
+    bookmarks,
+    toggleBookmark,
+  } = useScoutContext();
 
-  // Scout Agent State
-  const [isScouting, setIsScouting] = useState(false);
-  const [liveUrl, setLiveUrl] = useState<string | null>(null);
-  const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  const handleDeployScout = async () => {
-    setIsScouting(true);
-    setIsScanning(true); // Show local scanning UI too
-    setLogs([]);
-    setLiveUrl(null);
-    setScreenshot(null);
-    setSessionId(null);
-
-    try {
-      const response = await fetch('/api/scout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          city: searchCity,
-          price: Number(maxBudget),
-          beds: bedrooms === "any" ? 2 : Number(bedrooms)
-        }),
-      });
-
-      if (!response.body) return;
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value);
-        const lines = text.split('\n');
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const data = JSON.parse(line);
-            if (data.type === 'init') {
-              setLiveUrl(data.liveUrl);
-              setSessionId(data.sessionId);
-              setLogs(prev => [...prev, `Session Started: ${data.sessionId}`]);
-            } else if (data.type === 'log') {
-              setLogs(prev => [...prev, data.message]);
-            } else if (data.type === 'error') {
-              setLogs(prev => [...prev, `Error: ${data.message}`]);
-            } else if (data.type === 'complete') {
-              setLogs(prev => [...prev, data.message]);
-            } else if (data.type === 'listings') {
-              setLogs(prev => [...prev, `Received ${data.data.length} listings from agent`]);
-              // 1. Sort by Scam Score (Green -> Red)
-              // 2. Use real images if available (Gemini/Puppeteer now provides them)
-              const sorted = data.data.sort((a: any, b: any) => a.scamScore - b.scamScore);
-
-              setListings(sorted.map((l: any) => ({
-                ...l,
-                // Use the custom house placeholder since we aren't scraping images
-                image: l.image && l.image.length > 5 ? l.image : "/house-placeholder.jpg",
-              })));
-            } else if (data.type === 'screenshot') {
-              setScreenshot(data.data);
-            }
-          } catch (e) {
-            console.error("Error parsing stream:", e);
-          }
-        }
-      }
-
-    } catch (error) {
-      console.error("Scouting failed:", error);
-      setLogs(prev => [...prev, "Failed to start scouting agent."]);
-    } finally {
-      setIsScanning(false);
-      // We keep isScouting true to show the results/logs
-    }
-  };
+  // Note: All local state has been moved to ScoutContext for persistence.
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden flex-col lg:flex-row">
       {/* Left Panel - Control Center (60%) */}
-      <div className="flex w-[60%] flex-col border-r border-border">
+      <div className="flex w-full lg:w-[60%] flex-col border-r border-border">
         {/* Header with Search Controls */}
-        <header className="shrink-0 border-b border-border bg-card p-4">
+        <header className="shrink-0 border-b border-border bg-card p-4 md:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Search className="h-5 w-5 text-primary" />
             <h1 className="font-mono text-lg font-bold tracking-tight">
@@ -166,7 +100,7 @@ export default function ScoutPage() {
           </div>
 
           {/* Search Inputs Row */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -214,9 +148,9 @@ export default function ScoutPage() {
 
           {/* Deploy Button */}
           <Button
-            onClick={handleDeployScout}
+            onClick={deployScout}
             disabled={isScanning}
-            className="mt-4 w-full font-mono text-sm h-12"
+            className="mt-4 w-full font-mono text-sm h-12 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             size="lg"
           >
             {isScanning ? (
@@ -262,10 +196,11 @@ export default function ScoutPage() {
         {/* Results Area - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4">
           {isScanning && listings.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center">
+            <div className="flex h-full flex-col items-center justify-center animate-in fade-in duration-500">
               <div className="relative">
                 <div className="h-16 w-16 rounded-full border-2 border-primary/30" />
                 <div className="absolute inset-0 h-16 w-16 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <div className="absolute inset-0 h-16 w-16 rounded-full border-2 border-primary/20 border-r-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
               </div>
               <p className="mt-4 font-mono text-sm text-primary animate-pulse">
                 SCANNING LISTINGS...
@@ -275,8 +210,11 @@ export default function ScoutPage() {
               </p>
             </div>
           ) : listings.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <Search className="h-12 w-12 text-muted-foreground/50" />
+            <div className="flex h-full flex-col items-center justify-center text-center animate-in fade-in duration-500">
+              <div className="relative">
+                <Search className="h-12 w-12 text-muted-foreground/50 animate-pulse" />
+                <div className="absolute inset-0 h-12 w-12 rounded-full border-2 border-primary/20 animate-ping" />
+              </div>
               <p className="mt-4 font-mono text-sm text-muted-foreground">
                 No listings yet
               </p>
@@ -287,111 +225,12 @@ export default function ScoutPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {listings.map((listing) => (
-                <Card
+                <ListingCard
                   key={listing.id}
-                  className="group overflow-hidden border-border bg-card transition-all duration-300 hover:border-primary/50"
-                >
-                  <div className="flex">
-                    {/* Thumbnail */}
-                    <div className="relative h-28 w-36 shrink-0 overflow-hidden bg-secondary">
-                      {listing.image ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={listing.image}
-                          alt="Listing"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="font-mono text-[10px] text-muted-foreground">
-                            [IMG]
-                          </div>
-                        </div>
-                      )}
-
-                      {listing.verified && (
-                        <div className="absolute left-1 top-1">
-                          <Badge className="bg-status-success/90 font-mono text-[10px] px-1 py-0 text-background">
-                            <Shield className="mr-0.5 h-2 w-2" />
-                            OK
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <CardContent className="flex flex-1 flex-col justify-between p-3">
-                      <div>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0 pr-2">
-                            {/* Make title clickable */}
-                            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-                            <a href={(listing as any).link || '#'} target="_blank" rel="noreferrer" className="group-hover:underline">
-                              <div className="flex items-baseline gap-1">
-                                <span className="font-mono text-lg font-bold text-foreground">
-                                  ${listing.price.toLocaleString()}
-                                </span>
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  /mo
-                                </span>
-                              </div>
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {listing.address}
-                              </p>
-                            </a>
-                          </div>
-                          <Badge
-                            className={`font-mono text-[10px] ${getScamScoreColor(listing.scamScore)} shrink-0`}
-                          >
-                            <AlertTriangle className="mr-0.5 h-2.5 w-2.5" />
-                            {listing.scamScore}%
-                          </Badge>
-                        </div>
-                        <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
-                          <span>{listing.beds} bed</span>
-                          <span>{listing.baths} bath</span>
-                          <span>{(listing.sqft || 0).toLocaleString()} sqft</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          asChild
-                          variant="secondary"
-                          size="sm"
-                          className="h-7 flex-1 font-mono text-[10px]"
-                        >
-                          <Link href={`/forecaster?listingId=${listing.id}&price=${listing.price}&address=${encodeURIComponent(listing.address)}&city=${encodeURIComponent(listing.city)}&beds=${listing.beds}&baths=${listing.baths}&sqft=${listing.sqft}`}>
-                            <TrendingUp className="mr-1 h-3 w-3" />
-                            FORECAST
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="h-7 flex-1 font-mono text-[10px] bg-transparent"
-                        >
-                          <Link href="/lawyer">
-                            <Scale className="mr-1 h-3 w-3" />
-                            ANALYZE
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="h-7 flex-1 font-mono text-[10px] bg-transparent"
-                        >
-                          <Link href="/negotiate">
-                            <BadgeDollarSign className="mr-1 h-3 w-3" />
-                            NEGOTIATE
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </div>
-                </Card>
+                  listing={listing}
+                  isBookmarked={bookmarks.some(b => b.id === listing.id)}
+                  onToggleBookmark={toggleBookmark}
+                />
               ))}
             </div>
           )}
@@ -399,7 +238,7 @@ export default function ScoutPage() {
       </div>
 
       {/* Right Panel - Live Agent View (40%) */}
-      <div className="flex w-[40%] flex-col bg-background">
+      <div className="flex w-full lg:w-[40%] flex-col bg-background border-t lg:border-t-0 border-border">
         {/* Terminal Header */}
         <header className="shrink-0 border-b border-border bg-card px-4 py-3">
           <div className="flex items-center gap-3">
@@ -511,10 +350,10 @@ function TimestampDisplay() {
   const [time, setTime] = useState(new Date());
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: interval timer
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
-  });
+  }, []);
 
   return (
     <span suppressHydrationWarning>
