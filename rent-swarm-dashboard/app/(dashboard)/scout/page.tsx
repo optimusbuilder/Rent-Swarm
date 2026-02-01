@@ -28,40 +28,9 @@ import Link from "next/link";
 import { useScoutContext } from "@/app/context/scout-context";
 import { ListingCard } from "@/components/listing-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VoiceCommandInput } from "@/components/voice-command-input";
 
-// Mock listing data (optional fallback)
-const mockListings = [
-  {
-    id: 1,
-    image: "/house-placeholder.jpg",
-    price: 2450,
-    address: "1847 Market St, Apt 4B",
-    city: "San Francisco, CA",
-    beds: 2,
-    baths: 1,
-    sqft: 850,
-    scamScore: 12,
-    verified: true,
-  },
-  {
-    id: 2,
-    image: "/house-placeholder.jpg",
-    price: 1850,
-    address: "523 Valencia St, Unit 2",
-    city: "San Francisco, CA",
-    beds: 1,
-    baths: 1,
-    sqft: 620,
-    scamScore: 78,
-    verified: false,
-  },
-];
 
-function getScamScoreColor(score: number) {
-  if (score <= 20) return "bg-status-success text-background";
-  if (score <= 50) return "bg-status-warning text-background";
-  return "bg-status-danger text-foreground";
-}
 
 export default function ScoutPage() {
   const {
@@ -81,6 +50,13 @@ export default function ScoutPage() {
     toggleBookmark,
   } = useScoutContext();
 
+  const handleVoiceCommand = (filters: any) => {
+    if (filters.city) setSearchCity(filters.city);
+    if (filters.minBudget) setMinBudget(String(filters.minBudget));
+    if (filters.maxBudget) setMaxBudget(String(filters.maxBudget));
+    if (filters.bedrooms) setBedrooms(String(filters.bedrooms));
+  };
+
   // Note: All local state has been moved to ScoutContext for persistence.
 
   return (
@@ -94,6 +70,7 @@ export default function ScoutPage() {
             <h1 className="font-mono text-lg font-bold tracking-tight">
               THE SCOUT
             </h1>
+            <VoiceCommandInput onCommandParsed={handleVoiceCommand} />
             <span className="ml-auto font-mono text-xs text-muted-foreground">
               CONTROL CENTER
             </span>

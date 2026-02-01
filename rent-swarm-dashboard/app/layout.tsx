@@ -30,6 +30,10 @@ export const metadata: Metadata = {
   },
 }
 
+import { Providers } from "@/components/providers";
+
+// ... existing code ...
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,8 +42,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
-        {children}
-        <Analytics />
+        <Providers>
+          {children}
+          <Analytics />
+        </Providers>
       </body>
     </html>
   )

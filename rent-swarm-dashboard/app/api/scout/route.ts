@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
 
           console.log(`Found ${items.length} raw items`);
 
-          return items.slice(0, 10).map(item => {
+          return items.slice(0, 25).map(item => {
             // Try identifying price and title with broad selectors if specific classes fail
             const titleEl = item.querySelector('.result-title, .titlestring, .posting-title, h3, a.cl-app-anchor');
             const priceEl = item.querySelector('.result-price, .priceinfo, .price');
