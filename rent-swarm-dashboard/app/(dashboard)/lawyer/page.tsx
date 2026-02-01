@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Scale, Upload, FileText, AlertTriangle, AlertCircle, CheckCircle, Loader2, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Scale, Upload, FileText, AlertTriangle, AlertCircle, CheckCircle, Loader2, X, Trash2 } from "lucide-react";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,12 +75,39 @@ const JURISDICTIONS = [
 export default function LawyerPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('auto');
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [leaseText, setLeaseText] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+
+  // Persist lawyer session state with localStorage
+  const [selectedJurisdiction, setSelectedJurisdiction, clearJurisdiction] = useLocalStorage<string>('lawyer-jurisdiction', 'auto');
+  const [fileName, setFileName, clearFileName] = useLocalStorage<string | null>('lawyer-filename', null);
+  const [leaseText, setLeaseText, clearLeaseText] = useLocalStorage<string | null>('lawyer-text', null);
+  const [analysis, setAnalysis, clearAnalysis] = useLocalStorage<AnalysisResult | null>('lawyer-analysis', null);
+
   const [error, setError] = useState<string | null>(null);
+  const [sessionRestored, setSessionRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if session was restored on mount
+  useEffect(() => {
+    if (analysis !== null || fileName !== null) {
+      setSessionRestored(true);
+      setTimeout(() => setSessionRestored(false), 5000); // Hide after 5 seconds
+    }
+  }, []); // Run once on mount
+
+  // Clear all session data
+  const handleClearSession = () => {
+    if (confirm("Clear all lease analysis data? This cannot be undone.")) {
+      clearJurisdiction();
+      clearFileName();
+      clearLeaseText();
+      clearAnalysis();
+      setSelectedJurisdiction('auto');
+      setFileName(null);
+      setLeaseText(null);
+      setAnalysis(null);
+      setError(null);
+    }
+  };
 
   const handleFileUpload = async (file: File) => {
     if (file.type !== "application/pdf") {
@@ -189,24 +217,43 @@ export default function LawyerPage() {
               AI-Powered Lease Analysis & Risk Detection
             </p>
           </div>
-          {!fileName && (
-            <div className="flex items-center gap-2">
-              <label className="font-mono text-xs text-muted-foreground">Jurisdiction:</label>
-              <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
-                <SelectTrigger className="w-[200px] font-mono text-xs">
-                  <SelectValue placeholder="Auto-detect" />
-                </SelectTrigger>
-                <SelectContent>
-                  {JURISDICTIONS.map((jur) => (
-                    <SelectItem key={jur.value} value={jur.value}>
-                      {jur.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {!fileName && (
+              <div className="flex items-center gap-2">
+                <label className="font-mono text-xs text-muted-foreground">Jurisdiction:</label>
+                <Select value={selectedJurisdiction} onValueChange={setSelectedJurisdiction}>
+                  <SelectTrigger className="w-[200px] font-mono text-xs">
+                    <SelectValue placeholder="Auto-detect" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JURISDICTIONS.map((jur) => (
+                      <SelectItem key={jur.value} value={jur.value}>
+                        {jur.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {/* Clear Session Button */}
+            <button
+              onClick={handleClearSession}
+              className="flex items-center gap-2 rounded-md border border-border bg-transparent px-3 py-1.5 font-mono text-xs hover:bg-secondary transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+              Clear Session
+            </button>
+          </div>
         </div>
+
+        {/* Session Restored Banner */}
+        {sessionRestored && (
+          <div className="mt-3 rounded-lg bg-blue-100 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 px-4 py-2">
+            <p className="font-mono text-xs text-blue-800 dark:text-blue-200">
+              ✓ Previous analysis restored: {fileName}
+            </p>
+          </div>
+        )}
       </header>
 
       {fileName && analysis ? (

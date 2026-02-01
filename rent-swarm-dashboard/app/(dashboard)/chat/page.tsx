@@ -3,12 +3,13 @@
 import React from "react"
 
 import { useState, useRef, useEffect } from "react";
-import { Zap, Paperclip, Send, FileText, Home, Scale } from "lucide-react";
+import { Zap, Paperclip, Send, FileText, Home, Scale, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useScoutContext } from "@/app/context/scout-context";
+import { useLocalStorage } from "@/lib/hooks/useLocalStorage";
 
 type Message = {
   id: number;
@@ -30,10 +31,34 @@ const initialMessages: Message[] = [
 export default function ChatPage() {
   const { listings, bookmarks } = useScoutContext();
 
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [input, setInput] = useState("");
+  // Persist messages and input with localStorage
+  const [messages, setMessages, clearMessages] = useLocalStorage<Message[]>("chat-messages", initialMessages);
+  const [input, setInput, clearInput] = useLocalStorage<string>("chat-input", "");
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionRestored, setSessionRestored] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Hydrate timestamps from localStorage (strings → Date objects)
+  useEffect(() => {
+    // Convert timestamp strings back to Date objects
+    const hydratedMessages = messages.map(msg => ({
+      ...msg,
+      timestamp: typeof msg.timestamp === 'string' ? new Date(msg.timestamp) : msg.timestamp
+    }));
+
+    // Check if any hydration happened
+    const needsHydration = messages.some(msg => typeof msg.timestamp === 'string');
+
+    if (needsHydration) {
+      setMessages(hydratedMessages);
+    }
+
+    // Show restoration banner if session was restored
+    if (messages.length > initialMessages.length) {
+      setSessionRestored(true);
+      setTimeout(() => setSessionRestored(false), 5000); // Hide after 5 seconds
+    }
+  }, []); // Run once on mount
 
   const contextItems = [
     { icon: Home, label: `${listings.length} Listings`, color: "text-primary" },
@@ -110,6 +135,15 @@ export default function ChatPage() {
     }
   };
 
+  const handleClearSession = () => {
+    if (confirm("Clear all chat messages? This cannot be undone.")) {
+      clearMessages();
+      clearInput();
+      setMessages(initialMessages);
+      setInput("");
+    }
+  };
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Header with Context Badge */}
@@ -129,24 +163,46 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Context Active Badge */}
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              Context Active
-            </span>
-            <div className="h-4 w-px bg-border" />
-            {contextItems.map((item) => (
-              <Badge
-                key={item.label}
-                variant="outline"
-                className="gap-1 border-border bg-transparent font-mono text-[10px]"
-              >
-                <item.icon className={cn("h-3 w-3", item.color)} />
-                {item.label}
-              </Badge>
-            ))}
+          {/* Context Active Badge + Clear Button */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Context Active
+              </span>
+              <div className="h-4 w-px bg-border" />
+              {contextItems.map((item) => (
+                <Badge
+                  key={item.label}
+                  variant="outline"
+                  className="gap-1 border-border bg-transparent font-mono text-[10px]"
+                >
+                  <item.icon className={cn("h-3 w-3", item.color)} />
+                  {item.label}
+                </Badge>
+              ))}
+            </div>
+
+            {/* Clear Session Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearSession}
+              className="h-8 gap-2 bg-transparent font-mono text-[10px]"
+            >
+              <Trash2 className="h-3 w-3" />
+              Clear Session
+            </Button>
           </div>
         </div>
+
+        {/* Session Restored Banner */}
+        {sessionRestored && (
+          <div className="mt-3 rounded-lg bg-blue-100 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 px-4 py-2">
+            <p className="font-mono text-xs text-blue-800 dark:text-blue-200">
+              ✓ Previous session restored ({messages.length - initialMessages.length} message{messages.length - initialMessages.length !== 1 ? 's' : ''})
+            </p>
+          </div>
+        )}
       </header>
 
       {/* Messages Area */}
