@@ -26,7 +26,7 @@ import { VoicePlayer } from "@/components/voice-player";
 
 // Mock data removed
 
-export const dynamic = 'force-dynamic';
+// export const dynamic = 'force-dynamic';
 
 function NegotiateContent() {
   const searchParams = useSearchParams();
