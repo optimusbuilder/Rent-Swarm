@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { DossierDownloadButton } from "@/components/dossier-download-button";
 
 interface Listing {
     id: number;
@@ -203,6 +204,11 @@ export function ListingCard({
                                 NEGOTIATE
                             </Link>
                         </Button>
+                        {showSavedDate && (
+                            <div className="w-full mt-2">
+                                <DossierDownloadButton listing={listing} />
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </div>

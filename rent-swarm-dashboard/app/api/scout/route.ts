@@ -180,11 +180,43 @@ export async function POST(req: NextRequest) {
             const priceEl = item.querySelector('.result-price, .priceinfo, .price');
             const linkEl = item.querySelector('a') as HTMLAnchorElement;
 
+
+            // Extract Image ID from data-ids attribute
+            // Format: 1:00I0I_...
+            const imageIds = (item as HTMLElement).getAttribute('data-ids');
+            let image = "";
+
+            // curated placeholder images (Unsplash source URLs for architecture/interiors)
+            const placeHolders = [
+              "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1512918760532-3edbed1351c6?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1484154218962-a1c00207bf9a?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1595846519845-68e298c2edd8?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1628592102751-ba83b0314276?auto=format&fit=crop&w=800&q=80",
+              "https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=800&q=80"
+            ];
+
+            if (imageIds) {
+              const firstId = imageIds.split(',')[0].split(':')[1];
+              if (firstId) {
+                image = `https://images.craigslist.org/${firstId}_300x300.jpg`;
+              }
+            }
+
+            // Fallback to random nice image if extraction failed
+            if (!image || image.length < 5) {
+              image = placeHolders[Math.floor(Math.random() * placeHolders.length)];
+            }
+
             return {
               title: (titleEl as HTMLElement)?.innerText || 'Unknown Title',
               price: (priceEl as HTMLElement)?.innerText || '$0',
               link: linkEl?.href || window.location.href, // Fallback to current page
-              image: '',
+              image: image,
               rawText: (item as HTMLElement).innerText
             };
           });
