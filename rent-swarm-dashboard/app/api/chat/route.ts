@@ -1,91 +1,118 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY!);
+import { ChatAgent } from '@/lib/agents/chat-agent';
+import { LangChainStreamAdapter } from '@/lib/streaming/langchain-stream';
 
 interface Message {
-    role: 'user' | 'assistant';
-    content: string;
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 interface ChatRequest {
-    messages: Message[];
-    context?: {
-        listings?: any[];
-        bookmarks?: any[];
-    };
+  messages: Message[];
+  context?: {
+    listings?: any[];
+    bookmarks?: any[];
+  };
+  sessionId?: string;
 }
 
 export async function POST(req: NextRequest) {
-    try {
-        const { messages, context }: ChatRequest = await req.json();
+  try {
+    const body: ChatRequest = await req.json();
+    const { messages, context, sessionId } = body;
 
-        if (!messages || messages.length === 0) {
-            return NextResponse.json(
-                { error: 'Messages are required' },
-                { status: 400 }
-            );
-        }
+    if (!messages || messages.length === 0) {
+      return NextResponse.json(
+        { error: 'Messages are required' },
+        { status: 400 }
+      );
+    }
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // For demo purposes, use a mock user ID
+    // In production, get this from next-auth session:
+    // const session = await getServerSession();
+    // const userId = session?.user?.email || 'anonymous';
+    const userId = 'demo-user';
 
-        // Build context string from user's data
-        let contextString = "";
-        if (context?.bookmarks && context.bookmarks.length > 0) {
-            contextString += `\n\nUser's Saved Listings (Bookmarks):\n`;
-            context.bookmarks.forEach((b, i) => {
-                contextString += `${i + 1}. ${b.address} - $${b.price}/mo, ${b.beds}bd/${b.baths}ba, ${b.sqft} sqft\n`;
-            });
-        }
-        if (context?.listings && context.listings.length > 0) {
-            contextString += `\n\nRecent Search Results:\n`;
-            context.listings.slice(0, 5).forEach((l, i) => {
-                contextString += `${i + 1}. ${l.address} - $${l.price}/mo, ${l.beds}bd/${l.baths}ba\n`;
-            });
-        }
+    // Extract the last user message
+    const userMessage = messages[messages.length - 1].content;
 
-        const systemPrompt = `You are the Rent-Swarm Brain, an expert AI housing assistant embedded in a rental search application.
+    // Initialize agent
+    const agent = new ChatAgent();
 
-Your capabilities:
-- Answer questions about apartments, neighborhoods, and rental markets
-- Compare listings and calculate price per square foot
-- Provide negotiation tips and strategies
-- Explain lease terms and potential red flags
-- Give insights about specific cities and neighborhoods
+    // Check if client wants streaming
+    const acceptHeader = req.headers.get('accept') || '';
+    const wantsStream = acceptHeader.includes('text/event-stream');
 
-Tone: Friendly, knowledgeable, and concise. Use bullet points when comparing items. Be direct.
-
-${contextString ? `Current User Context:${contextString}` : "User has no saved listings yet."}
-
-Respond helpfully to the user's question.`;
-
-        // Convert messages to Gemini format
-        const geminiMessages = messages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }]
-        }));
-
-        // Prepend system prompt to first user message or as separate
-        const contents = [
-            { role: 'user', parts: [{ text: systemPrompt }] },
-            { role: 'model', parts: [{ text: "Understood. I'm the Rent-Swarm Brain, ready to help with housing questions." }] },
-            ...geminiMessages
-        ];
-
-        const result = await model.generateContent({ contents });
-        const responseText = result.response.text();
-
-        return NextResponse.json({
-            role: 'assistant',
-            content: responseText
+    if (wantsStream) {
+      // STREAMING RESPONSE
+      try {
+        const stream = agent.stream({
+          sessionId,
+          userId,
+          userMessage,
+          context: context || { listings: [], bookmarks: [] },
         });
 
-    } catch (error) {
-        console.error('Chat API error:', error);
+        const readableStream = LangChainStreamAdapter.toReadableStream(stream, 'sse');
+
+        return new Response(readableStream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
+      } catch (streamError) {
+        console.error('Streaming error:', streamError);
         return NextResponse.json(
-            { error: 'Failed to generate response', details: String(error) },
-            { status: 500 }
+          { error: 'Streaming failed', details: String(streamError) },
+          { status: 500 }
         );
+      }
+    } else {
+      // NON-STREAMING RESPONSE
+      const result = await agent.invoke({
+        sessionId,
+        userId,
+        userMessage,
+        context: context || { listings: [], bookmarks: [] },
+      });
+
+      // Check if human-in-the-loop confirmation is required
+      if (result.humanInLoop?.required) {
+        return NextResponse.json({
+          role: 'assistant',
+          content: `⚠️ ${result.humanInLoop.reason}\n\nWould you like me to proceed?`,
+          sessionId: result.sessionId,
+          confirmation: result.humanInLoop,
+        });
+      }
+
+      return NextResponse.json({
+        role: 'assistant',
+        content: result.response,
+        sessionId: result.sessionId,
+        toolCalls: result.toolCalls,
+      });
     }
+  } catch (error) {
+    console.error('Chat API error:', error);
+
+    // Detailed error logging
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Failed to generate response',
+        details: process.env.NODE_ENV === 'development'
+          ? String(error)
+          : 'An unexpected error occurred',
+      },
+      { status: 500 }
+    );
+  }
 }
