@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+
+// Force dynamic rendering (no static generation)
+export const dynamic = 'force-dynamic';
 import {
   BadgeDollarSign,
   TrendingDown,
@@ -24,7 +27,7 @@ import { VoicePlayer } from "@/components/voice-player";
 // Mock data removed
 
 
-export default function NegotiatePage() {
+function NegotiateContent() {
   const searchParams = useSearchParams();
 
   // State for data
@@ -307,5 +310,17 @@ export default function NegotiatePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NegotiatePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="font-mono text-sm text-muted-foreground">Loading...</div>
+      </div>
+    }>
+      <NegotiateContent />
+    </Suspense>
   );
 }

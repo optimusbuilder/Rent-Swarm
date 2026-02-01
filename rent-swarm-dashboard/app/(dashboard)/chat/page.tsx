@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useScoutContext } from "@/app/context/scout-context";
 
+// Force dynamic rendering (no static generation)
+export const dynamic = 'force-dynamic';
+
 type Message = {
   id: number;
   role: "user" | "assistant";

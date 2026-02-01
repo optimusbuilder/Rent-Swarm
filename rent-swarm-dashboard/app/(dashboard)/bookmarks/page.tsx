@@ -10,6 +10,9 @@ import Link from "next/link";
 import { useScoutContext } from "@/app/context/scout-context";
 import { ListingCard } from "@/components/listing-card";
 
+// Force dynamic rendering (no static generation)
+export const dynamic = 'force-dynamic';
+
 export default function BookmarksPage() {
   const { bookmarks, toggleBookmark } = useScoutContext();
 
