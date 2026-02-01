@@ -27,7 +27,13 @@ async function callModel(state: AgentState) {
     },
   };
 
-  const response = await model.invoke(state.messages, config);
+  // CRITICAL: Filter out SystemMessage for Gemini compatibility
+  // Gemini requires SystemMessage to be first, but after tool calls
+  // the message array has [SystemMessage, HumanMessage, AIMessage, ToolMessage]
+  // which violates this rule. We filter out SystemMessages to prevent errors.
+  const filteredMessages = state.messages.filter(msg => msg._getType() !== 'system');
+
+  const response = await model.invoke(filteredMessages, config);
 
   return {
     messages: [...state.messages, response],

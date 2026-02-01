@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllLegalSections } from '@/lib/rag/legal-references';
 import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
+import { PDFParse } from 'pdf-parse';
 
 // Set max duration for this route (handles large PDFs)
 // Note: Vercel Pro plan allows up to 300s, Hobby plan is 10s
@@ -197,11 +198,8 @@ export async function POST(request: NextRequest) {
     // Extract text from PDF
     let pdfText: string;
     try {
-      // Dynamic import for pdf-parse to handle ESM/CJS compatibility in production
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = (pdfParseModule as any).default || pdfParseModule;
-      const pdfData = await pdfParse(buffer);
-      pdfText = pdfData.text;
+      const parser = new PDFParse({'data' : buffer})
+      pdfText = (await parser.getText()).text;
     } catch (parseError) {
       console.error('PDF Parse Error Details:', {
         error: parseError,

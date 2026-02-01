@@ -19,9 +19,11 @@ export class ChatAgent {
   }
 
   /**
-   * Build the system prompt with user context
+   * Build the system prompt with user context (as a string, not SystemMessage)
+   * Google Gemini requires SystemMessage to be first, but with conversation history
+   * it's better to include the system instructions in the first user message
    */
-  private buildSystemPrompt(context: AgentContext): SystemMessage {
+  private buildSystemPromptContent(context: AgentContext): string {
     const { bookmarks = [], listings = [] } = context;
 
     let contextInfo = "";
@@ -59,7 +61,7 @@ ${contextInfo || "\n\nUser has no saved listings or recent searches yet. Suggest
 
 Respond helpfully to the user's question using the appropriate tools.`;
 
-    return new SystemMessage(systemPrompt);
+    return systemPrompt;
   }
 
   /**
@@ -104,12 +106,31 @@ Respond helpfully to the user's question using the appropriate tools.`;
     const memory = new MongoDBChatMessageHistory(sessionId, userId);
     const history = await memory.getMessages();
 
-    // Build system prompt
-    const systemPrompt = this.buildSystemPrompt(context);
+    // Build system prompt content
+    const systemPromptContent = this.buildSystemPromptContent(context);
+
+    // Filter out any SystemMessage from history (Gemini doesn't support them after first turn)
+    const filteredHistory = history.filter(msg => msg._getType() !== 'system');
+
+    // Prepare messages for the graph
+    // For Google Gemini: Only include SystemMessage if there's NO history
+    let messages: any[];
+
+    if (filteredHistory.length === 0) {
+      // First message in conversation - use SystemMessage
+      messages = [
+        new SystemMessage(systemPromptContent),
+        new HumanMessage(userMessage),
+      ];
+    } else {
+      // Subsequent messages - don't use SystemMessage (Gemini constraint)
+      // Just use filtered history (no system messages) + new message
+      messages = [...filteredHistory, new HumanMessage(userMessage)];
+    }
 
     // Invoke graph
     const result = await this.graph.invoke({
-      messages: [systemPrompt, ...history, new HumanMessage(userMessage)],
+      messages,
       context: { ...context, userId },
       iterations: 0,
     });
@@ -148,12 +169,31 @@ Respond helpfully to the user's question using the appropriate tools.`;
     const memory = new MongoDBChatMessageHistory(sessionId, userId);
     const history = await memory.getMessages();
 
-    // Build system prompt
-    const systemPrompt = this.buildSystemPrompt(context);
+    // Build system prompt content
+    const systemPromptContent = this.buildSystemPromptContent(context);
+
+    // Filter out any SystemMessage from history (Gemini doesn't support them after first turn)
+    const filteredHistory = history.filter(msg => msg._getType() !== 'system');
+
+    // Prepare messages for the graph
+    // For Google Gemini: Only include SystemMessage if there's NO history
+    let messages: any[];
+
+    if (filteredHistory.length === 0) {
+      // First message in conversation - use SystemMessage
+      messages = [
+        new SystemMessage(systemPromptContent),
+        new HumanMessage(userMessage),
+      ];
+    } else {
+      // Subsequent messages - don't use SystemMessage (Gemini constraint)
+      // Just use filtered history (no system messages) + new message
+      messages = [...filteredHistory, new HumanMessage(userMessage)];
+    }
 
     // Stream from graph
     const stream = await this.graph.stream({
-      messages: [systemPrompt, ...history, new HumanMessage(userMessage)],
+      messages,
       context: { ...context, userId },
       iterations: 0,
     });

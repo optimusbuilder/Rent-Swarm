@@ -1,6 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { getAllLegalSections } from "@/lib/rag/legal-references";
+import { BedrockKnowledgeBaseRetriever } from "@/lib/rag/bedrock-retriever";
 
 export const leaseAnalyzerTool = new DynamicStructuredTool({
   name: "analyze_lease_clauses",
@@ -23,7 +24,28 @@ export const leaseAnalyzerTool = new DynamicStructuredTool({
       });
     }
 
-    // Get legal references for the jurisdiction
+    // Initialize Bedrock retriever if credentials are available
+    let bedrockContext = "";
+    let bedrockDocuments: any[] = [];
+    const hasBedrockConfig =
+      process.env.BEDROCK_KNOWLEDGE_BASE_ID &&
+      process.env.AWS_ACCESS_KEY_ID &&
+      process.env.AWS_SECRET_ACCESS_KEY;
+
+    // Try to retrieve from Bedrock knowledge base
+    if (hasBedrockConfig) {
+      try {
+        const retriever = new BedrockKnowledgeBaseRetriever();
+        const result = await retriever.retrieve(query, 3);
+        bedrockDocuments = result.documents;
+        bedrockContext = BedrockKnowledgeBaseRetriever.formatContext(result.documents);
+      } catch (error) {
+        console.error('Bedrock retrieval failed, falling back to local references:', error);
+        // Continue with local references as fallback
+      }
+    }
+
+    // Get legal references for the jurisdiction (local fallback)
     const legalSections = getAllLegalSections(jurisdiction);
 
     // Search for relevant legal sections based on query
@@ -67,7 +89,8 @@ export const leaseAnalyzerTool = new DynamicStructuredTool({
       }
     }
 
-    if (relevantSections.length === 0) {
+    // If we have Bedrock results but no local matches, still return Bedrock context
+    if (relevantSections.length === 0 && bedrockDocuments.length === 0) {
       return JSON.stringify({
         success: false,
         message: `No specific legal information found for "${query}". ${
@@ -88,14 +111,19 @@ export const leaseAnalyzerTool = new DynamicStructuredTool({
       });
     }
 
-    // Return relevant legal information
+    // Combine results from both sources
+    const totalSources = relevantSections.length + (bedrockDocuments.length > 0 ? 1 : 0);
+
+    // Return relevant legal information with Bedrock context
     return JSON.stringify({
       success: true,
-      message: `Found ${relevantSections.length} relevant legal reference(s) for "${query}"${
+      message: `Found ${totalSources} source(s) of legal information for "${query}"${
         jurisdiction ? ` in ${jurisdiction}` : ""
-      }`,
+      }${bedrockDocuments.length > 0 ? ` (including ${bedrockDocuments.length} documents from knowledge base)` : ""}`,
       query,
       jurisdiction: jurisdiction || "General",
+      bedrockContext: bedrockDocuments.length > 0 ? bedrockContext : null,
+      bedrockDocumentCount: bedrockDocuments.length,
       sections: relevantSections.slice(0, 3).map((s) => ({
         id: s.id,
         title: s.title,
@@ -105,7 +133,7 @@ export const leaseAnalyzerTool = new DynamicStructuredTool({
       })),
       disclaimer:
         "This information is for educational purposes only and does not constitute legal advice. Consult with a qualified attorney for specific legal guidance.",
-      needsAdvice: relevantSections.length > 0
+      needsAdvice: relevantSections.length > 0 || bedrockDocuments.length > 0
         ? "For specific recommendations about your situation, invoke this tool again with provideAdvice=true"
         : null,
     });
