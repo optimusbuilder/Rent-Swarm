@@ -66,6 +66,9 @@ export default function ChatPage() {
     setInput("");
     setIsTyping(true);
 
+    console.log("Here are the new messages: ");
+    console.log(JSON.stringify(newMessages.map(m => ({ role: m.role, content: m.content }))));
+
     try {
       // Call the API with conversation history and context
       const response = await fetch('/api/chat', {

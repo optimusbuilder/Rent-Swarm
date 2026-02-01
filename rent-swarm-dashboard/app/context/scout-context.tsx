@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 // Mock listing data removed
 
@@ -70,34 +71,60 @@ export function ScoutProvider({ children }: { children: ReactNode }) {
 
     // Bookmarks State
     const [bookmarks, setBookmarks] = useState<Listing[]>([]);
+    const { data: session } = useSession();
 
-    // Load from localStorage on mount (Client-side only)
-    React.useEffect(() => {
-        const saved = localStorage.getItem('rent-swarm-bookmarks');
-        if (saved) {
-            try {
-                setBookmarks(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse bookmarks", e);
+    // Load bookmarks from API on auth
+    useEffect(() => {
+        if (session?.user) {
+            fetch("/api/bookmarks")
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.bookmarks) setBookmarks(data.bookmarks);
+                })
+                .catch(console.error);
+        } else {
+            // Fallback to local storage if not logged in
+            const saved = localStorage.getItem('rent-swarm-bookmarks');
+            if (saved) {
+                try {
+                    setBookmarks(JSON.parse(saved));
+                } catch (e) {
+                    console.error(e);
+                }
             }
         }
-    }, []);
+    }, [session]);
 
-    // Save to localStorage on change
-    React.useEffect(() => {
-        localStorage.setItem('rent-swarm-bookmarks', JSON.stringify(bookmarks));
-    }, [bookmarks]);
+    const toggleBookmark = useCallback(async (listing: Listing) => {
+        // Optimistic update
+        const isBookmarked = bookmarks.some((b) => b.id === listing.id);
+        const newBookmarks = isBookmarked
+            ? bookmarks.filter((b) => b.id !== listing.id)
+            : [...bookmarks, listing];
 
-    const toggleBookmark = (listing: Listing) => {
-        setBookmarks(prev => {
-            const exists = prev.find(b => b.id === listing.id);
-            if (exists) {
-                return prev.filter(b => b.id !== listing.id);
-            } else {
-                return [...prev, { ...listing, savedAt: new Date().toLocaleDateString() }];
+        setBookmarks(newBookmarks);
+
+        // Sync local
+        if (!session?.user) {
+            localStorage.setItem('rent-swarm-bookmarks', JSON.stringify(newBookmarks));
+        }
+
+        // Sync with API if logged in
+        if (session?.user) {
+            try {
+                await fetch("/api/bookmarks", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        bookmark: listing,
+                        action: isBookmarked ? "remove" : "add"
+                    })
+                });
+            } catch (error) {
+                console.error("Failed to sync bookmark", error);
             }
-        });
-    };
+        }
+    }, [bookmarks, session]);
 
     // --- Logic from page.tsx ---
     const deployScout = async () => {

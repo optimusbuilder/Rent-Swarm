@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pdf from 'pdf-parse';
 import { getAllLegalSections } from '@/lib/rag/legal-references';
 import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
+import { PDFParse } from 'pdf-parse';
 
 // Set max duration for this route (handles large PDFs)
 // Note: Vercel Pro plan allows up to 300s, Hobby plan is 10s
@@ -135,8 +135,19 @@ function detectRisksWithRAG(text: string, jurisdiction?: string): RiskFlag[] {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('📥 PDF Upload Request Received');
+    
     // Parse multipart/form-data
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (formError) {
+      console.error('❌ FormData parse error:', formError);
+      return NextResponse.json(
+        { error: 'Failed to parse form data. Please ensure the file is properly uploaded.' },
+        { status: 400 }
+      );
+    }
     const file = formData.get('file') as File;
 
     if (!file) {
@@ -171,14 +182,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert File to Buffer for pdf-parse
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    let buffer: Buffer;
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+      console.log('✅ File converted to buffer, size:', buffer.length, 'bytes');
+    } catch (bufferError) {
+      console.error('❌ Buffer conversion error:', bufferError);
+      return NextResponse.json(
+        { error: 'Failed to process file. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     // Extract text from PDF
     let pdfText: string;
     try {
-      const data = await pdf(buffer);
-      pdfText = data.text;
+      const parser = new PDFParse({'data' : buffer})
+      pdfText = (await parser.getText()).text;
     } catch (parseError) {
       console.error('PDF Parse Error Details:', {
         error: parseError,

@@ -24,7 +24,6 @@ import { formatCurrency } from "@/lib/utils/format";
 import { AffordabilityCard } from "@/components/forecaster/affordability-card";
 import { UtilityEstimatorCard } from "@/components/forecaster/utility-estimator-card";
 
-// Force dynamic rendering (no static generation)
 export const dynamic = 'force-dynamic';
 
 function ForecasterContent() {
