@@ -50,6 +50,7 @@
     "googleapis": "^171.0.0",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
+    "mongodb": "^7.0.0",
     "mongoose": "^9.1.5",
     "next": "16.0.10",
     "next-auth": "^4.24.13",
