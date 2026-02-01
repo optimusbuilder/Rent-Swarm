@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PDFParse } from 'pdf-parse';
+import pdf from 'pdf-parse';
 import { getAllLegalSections } from '@/lib/rag/legal-references';
 import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
 
@@ -177,10 +177,8 @@ export async function POST(request: NextRequest) {
     // Extract text from PDF
     let pdfText: string;
     try {
-      const pdfParser = new PDFParse({ data: buffer });
-      const textResult = await pdfParser.getText();
-      pdfText = textResult.text;
-      await pdfParser.destroy();
+      const data = await pdf(buffer);
+      pdfText = data.text;
     } catch (parseError) {
       console.error('PDF Parse Error Details:', {
         error: parseError,

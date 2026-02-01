@@ -3,7 +3,20 @@ FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+# Install dependencies for canvas (required by pdf-parse)
+RUN apk add --no-cache \
+    libc6-compat \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    python3 \
+    make \
+    g++
 WORKDIR /app
 
 # Copy package files
@@ -26,6 +39,16 @@ RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
+# Install runtime dependencies for canvas
+RUN apk add --no-cache \
+    cairo \
+    jpeg \
+    pango \
+    giflib \
+    pixman \
+    pangomm \
+    libjpeg-turbo \
+    freetype
 WORKDIR /app
 
 ENV NODE_ENV=production
