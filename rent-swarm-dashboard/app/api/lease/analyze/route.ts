@@ -4,9 +4,12 @@ import { getAllLegalSections } from '@/lib/rag/legal-references';
 import { findRelevantLegalSections, chunkLeaseText } from '@/lib/rag/similarity';
 
 // Set max duration for this route (handles large PDFs)
+// Note: Vercel Pro plan allows up to 300s, Hobby plan is 10s
 export const maxDuration = 60;
 // Use Node.js runtime (not edge) for PDF parsing
 export const runtime = 'nodejs';
+// Allow larger request body for PDF uploads
+export const dynamic = 'force-dynamic';
 
 // Enhanced risk detection with RAG
 interface RiskFlag {
@@ -142,6 +145,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Check file size (limit to 10MB for production compatibility)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxFileSize) {
+      return NextResponse.json(
+        { error: `File size exceeds the maximum limit of 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB.` },
+        { status: 400 }
+      );
+    }
+
+    // Log file info for debugging (helpful for production issues)
+    console.log('📄 PDF Upload:', {
+      fileName: file.name,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      fileType: file.type,
+    });
 
     // Check if file is a PDF
     if (file.type !== 'application/pdf') {
@@ -285,8 +304,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Error analyzing lease:', error);
+    
+    // Provide more detailed error messages for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('duration');
+    const isSizeLimit = errorMessage.includes('size') || errorMessage.includes('too large');
+    
+    if (isTimeout) {
+      return NextResponse.json(
+        { error: 'The PDF processing took too long. Please try with a smaller file or contact support if the issue persists.' },
+        { status: 504 }
+      );
+    }
+    
+    if (isSizeLimit) {
+      return NextResponse.json(
+        { error: 'File size is too large. Please upload a PDF file smaller than 10MB.' },
+        { status: 413 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'An unexpected error occurred while analyzing the lease.' },
+      { 
+        error: 'An unexpected error occurred while analyzing the lease.',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }
