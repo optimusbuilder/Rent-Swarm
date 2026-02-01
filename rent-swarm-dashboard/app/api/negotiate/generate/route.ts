@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY!);
@@ -47,43 +47,43 @@ export async function POST(req: NextRequest) {
          - Ready for immediate move-in and deposit pay.
       4. **The Offer**: "I am prepared to sign a 12-month lease today if we can agree on $${targetPrice}/mo."
       5. **Tone**: Collaborative, not combative. Win-win.
-      
-      Output JSON format:
-      {
-        "subject": "Application & Offer: ${address} - [Your Name]",
-        "body": "The full email text..."
-      }
     `;
+
+        const schema = {
+            description: "Email draft structure",
+            type: SchemaType.OBJECT,
+            properties: {
+                subject: {
+                    type: SchemaType.STRING,
+                    description: "The email subject line",
+                    nullable: false,
+                },
+                body: {
+                    type: SchemaType.STRING,
+                    description: "The full email body text",
+                    nullable: false,
+                },
+            },
+            required: ["subject", "body"],
+        };
 
         const result = await model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
-                responseMimeType: "application/json"
+                responseMimeType: "application/json",
+                responseSchema: schema as any,
             }
         });
 
         const text = result.response.text();
 
-        // Clean markdown code blocks if present
-        const cleanText = text.replace(/```json\n?|\n?```/g, "").trim();
-
         let emailDraft;
         try {
-            emailDraft = JSON.parse(cleanText);
+            // With responseSchema, the output should be valid JSON
+            emailDraft = JSON.parse(text);
         } catch (e) {
             console.error("JSON Parse Error:", e, "Raw text:", text);
-            // Fallback: try to find JSON substring
-            const firstBrace = text.indexOf('{');
-            const lastBrace = text.lastIndexOf('}');
-            if (firstBrace !== -1 && lastBrace !== -1) {
-                try {
-                    emailDraft = JSON.parse(text.substring(firstBrace, lastBrace + 1));
-                } catch (e2) {
-                    throw new Error("Failed to parse JSON generation");
-                }
-            } else {
-                throw new Error("Invalid JSON format");
-            }
+            throw new Error("Failed to parse JSON generation");
         }
 
         if (!emailDraft.subject || !emailDraft.body) {
