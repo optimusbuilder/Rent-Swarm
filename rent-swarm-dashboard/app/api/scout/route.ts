@@ -256,8 +256,20 @@ export async function POST(req: NextRequest) {
 
         try {
           const listings = JSON.parse(cleanJson);
-          send({ type: 'log', message: `Found ${listings.length} listings!` });
-          send({ type: 'listings', data: listings });
+
+          // Merge images from rawListings back into the AI results
+          // The AI often hallucinates or is told to ignore images, so we restore the valid ones we found
+          const enrichedListings = listings.map((item: any, index: number) => {
+            // Fallback to raw listing image if available at the same index
+            // This assumes 1:1 mapping, which the prompt requests
+            if (rawListings[index] && rawListings[index].image) {
+              return { ...item, image: rawListings[index].image };
+            }
+            return item;
+          });
+
+          send({ type: 'log', message: `Found ${enrichedListings.length} listings!` });
+          send({ type: 'listings', data: enrichedListings });
         } catch (e) {
           console.error("JSON Parse Error:", e);
           console.log("Failed JSON:", cleanJson);
