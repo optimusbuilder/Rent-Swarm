@@ -1,0 +1,125 @@
+{
+  "badLeaseExamples": [
+    {
+      "id": "bad-entry-1",
+      "type": "entry-notice",
+      "excerpt": "Landlord reserves the right to enter the premises at any time for any purpose, including but not limited to inspections, repairs, or showings to prospective tenants. No prior notice is required.",
+      "violation": "enter at any time",
+      "explanation": "This clause violates tenant privacy rights by allowing entry without notice. Most jurisdictions require at least 24 hours notice except in emergencies.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-entry-2",
+      "type": "entry-notice",
+      "excerpt": "Tenant agrees that landlord may enter the unit at landlord's sole discretion without prior notification for maintenance, inspection, or any other purpose deemed necessary by landlord.",
+      "violation": "enter at landlord's discretion",
+      "explanation": "Entry without notice violates tenant privacy. Landlords must provide reasonable notice (typically 24 hours) except in emergencies.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-deposit-1",
+      "type": "security-deposit",
+      "excerpt": "Tenant agrees to pay a non-refundable security deposit of $2,000. This deposit shall be retained by landlord as compensation for wear and tear and administrative costs.",
+      "violation": "non-refundable deposit",
+      "explanation": "Security deposits must be refundable in most jurisdictions. Non-refundable deposits are generally unenforceable and may violate tenant protection laws.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-deposit-2",
+      "type": "security-deposit",
+      "excerpt": "The security deposit may be withheld at landlord's discretion for damages, cleaning, administrative fees, or any other expenses incurred by landlord. No itemized statement will be provided.",
+      "violation": "deposit at landlord's discretion",
+      "explanation": "Landlords cannot exercise unilateral discretion over security deposits. Itemized deductions are typically required, and withholding must be justified.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-deposit-3",
+      "type": "security-deposit",
+      "excerpt": "Security deposit of $3,500 (exceeding one month's rent) is required. Landlord may retain deposit for any damages, repairs, or expenses without providing itemized deductions.",
+      "violation": "exceeds one month",
+      "explanation": "Many jurisdictions limit security deposits to one or two months' rent. Deposits exceeding these limits may be unenforceable.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-renewal-1",
+      "type": "automatic-renewal",
+      "excerpt": "This lease shall automatically renew for successive one-year terms unless either party provides written notice of termination at least 60 days prior to the expiration date.",
+      "violation": "automatic renewal",
+      "explanation": "Automatic renewal clauses without explicit tenant consent are often unenforceable. Tenants must receive proper notice and have the right to decline renewal.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-renewal-2",
+      "type": "automatic-renewal",
+      "excerpt": "Upon expiration of the initial term, this lease will automatically renew for an additional 12 months at the then-current market rate, unless tenant provides written notice of non-renewal 90 days in advance.",
+      "violation": "lease renews automatically",
+      "explanation": "Leases cannot automatically renew without explicit tenant consent. Automatic renewal may lock tenants into unfavorable terms without their agreement.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-habitability-1",
+      "type": "habitability",
+      "excerpt": "Tenant acknowledges that landlord makes no warranties regarding the condition of the premises. Tenant is responsible for all repairs, including but not limited to heating, plumbing, electrical, and structural repairs.",
+      "violation": "tenant responsible for all repairs",
+      "explanation": "Landlords cannot waive the warranty of habitability. Essential systems like heat, plumbing, and electricity are the landlord's responsibility.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-habitability-2",
+      "type": "habitability",
+      "excerpt": "Tenant agrees to maintain and repair all systems in the unit, including HVAC, plumbing, electrical, and appliances. Landlord disclaims any responsibility for habitability or code compliance.",
+      "violation": "no warranty of habitability",
+      "explanation": "Landlords cannot disclaim the warranty of habitability. They must maintain essential systems and ensure code compliance regardless of lease language.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-habitability-3",
+      "type": "habitability",
+      "excerpt": "Tenant shall be responsible for all maintenance and repair costs, including emergency repairs to heating, plumbing, and electrical systems. Landlord is not responsible for ensuring the unit meets housing code requirements.",
+      "violation": "tenant responsible for essential systems",
+      "explanation": "Landlords cannot shift responsibility for essential habitability systems to tenants. Heat, plumbing, and electrical systems are landlord responsibilities.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-retaliation-1",
+      "type": "retaliatory-eviction",
+      "excerpt": "Tenant agrees that filing complaints with housing authorities, requesting repairs, or joining tenant organizations shall constitute grounds for immediate termination of this lease.",
+      "violation": "eviction for complaints",
+      "explanation": "Retaliatory eviction is illegal. Landlords cannot evict tenants for exercising their rights, including filing complaints or requesting repairs.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-retaliation-2",
+      "type": "retaliatory-eviction",
+      "excerpt": "If tenant requests repairs or files any complaint regarding the condition of the premises, landlord may terminate this lease immediately without cause.",
+      "violation": "termination for requesting repairs",
+      "explanation": "Terminating a lease in retaliation for repair requests is illegal. Tenants have the right to request repairs without fear of eviction.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-waiver-1",
+      "type": "general",
+      "excerpt": "Tenant waives all rights under local, state, and federal tenant protection laws. This lease supersedes any applicable tenant rights statutes or regulations.",
+      "violation": "waiver of rights",
+      "explanation": "Tenants cannot waive their statutory rights. Lease clauses that attempt to waive tenant protection laws are unenforceable.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-fees-1",
+      "type": "general",
+      "excerpt": "Tenant agrees to pay all legal fees, court costs, and attorney fees incurred by landlord in connection with any dispute, regardless of outcome.",
+      "violation": "unilateral fee shifting",
+      "explanation": "One-sided fee shifting clauses that only benefit the landlord may be unenforceable. Fee provisions should be mutual or comply with local laws.",
+      "jurisdiction": "general"
+    },
+    {
+      "id": "bad-liability-1",
+      "type": "general",
+      "excerpt": "Tenant releases landlord from all liability for personal injury, property damage, or any other claims arising from the condition of the premises, including landlord negligence.",
+      "violation": "liability waiver",
+      "explanation": "Landlords cannot waive liability for their own negligence. Such clauses are generally unenforceable and may violate public policy.",
+      "jurisdiction": "general"
+    }
+  ]
+}
+
