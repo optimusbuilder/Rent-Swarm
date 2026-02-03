@@ -1,5 +1,14 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { z } from "zod";
+import connectToDatabase from "../db";
+import User from "../models/User";
+
+interface ToolMetadata {
+  bookmarks?: any[];
+  listings?: any[];
+  userId?: string;
+}
 
 export const bookmarkManagerTool = new DynamicStructuredTool({
   name: "query_bookmarks",
@@ -8,17 +17,38 @@ export const bookmarkManagerTool = new DynamicStructuredTool({
     action: z.enum(["list", "query"]).describe("'list' to show all bookmarks, 'query' to search bookmarks"),
     searchQuery: z.string().optional().describe("Search term to filter bookmarks by address, city, or other fields (only used when action is 'query')"),
   }),
-  func: async (input, config) => {
+  func: async (input, runManager, config?: RunnableConfig) => {
     const { action, searchQuery } = input;
 
-    // Get bookmarks from context
-    const bookmarks = config?.metadata?.bookmarks || [];
+    // Extract metadata safely
+    const metadata = (config?.metadata || {}) as ToolMetadata;
+
+    // Try to get bookmarks from context first (faster)
+    let bookmarks = metadata.bookmarks || [];
+
+    // If no bookmarks in context and we have a userId, fetch from database
+    if (bookmarks.length === 0 && metadata.userId) {
+      try {
+        await connectToDatabase();
+        const user = await User.findById(metadata.userId);
+        if (user && user.bookmarks) {
+          bookmarks = user.bookmarks;
+        }
+      } catch (error) {
+        console.error("Error fetching bookmarks from database:", error);
+        // Fall through to handle empty bookmarks
+      }
+    }
 
     if (bookmarks.length === 0) {
+      const hasUserId = !!metadata.userId;
       return JSON.stringify({
         success: false,
-        message: "You have no saved listings yet. Save some listings from search results to bookmark them.",
+        message: hasUserId
+          ? "You have no saved listings yet. Save some listings from search results to bookmark them."
+          : "Unable to access bookmarks. Please ensure you are logged in.",
         bookmarks: [],
+        requiresAuth: !hasUserId,
       });
     }
 

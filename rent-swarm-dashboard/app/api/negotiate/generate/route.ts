@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { withRetry } from '@/lib/utils/retry';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY!);
@@ -67,13 +68,23 @@ export async function POST(req: NextRequest) {
             required: ["subject", "body"],
         };
 
-        const result = await model.generateContent({
+        // Use exponential backoff retry for rate limiting (429 errors)
+        const result = await withRetry(
+          async () => model.generateContent({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: schema as any,
             }
-        });
+          }),
+          {
+            maxRetries: 5,
+            initialDelayMs: 1000,
+            onRetry: (error, attempt, delayMs) => {
+              console.log(`[Negotiate] Retry attempt ${attempt} after ${delayMs}ms due to: ${error.message}`);
+            }
+          }
+        );
 
         const text = result.response.text();
 

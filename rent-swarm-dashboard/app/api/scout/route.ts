@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { Browserbase } from '@browserbasehq/sdk';
 import puppeteer from 'puppeteer-core';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { withRetry } from '@/lib/utils/retry';
 
 // Initialize SDKs
 const browserbase = new Browserbase({
@@ -62,7 +63,19 @@ export async function POST(req: NextRequest) {
           model: "gemini-2.0-flash",
           generationConfig: { responseMimeType: "application/json" }
         });
-        const result = await model.generateContent(prompt);
+
+        // Use exponential backoff retry for rate limiting (429 errors)
+        const result = await withRetry(
+          async () => model.generateContent(prompt),
+          {
+            maxRetries: 5,
+            initialDelayMs: 1000,
+            onRetry: (error, attempt, delayMs) => {
+              console.log(`[Scout] Retry attempt ${attempt} for search strategy generation after ${delayMs}ms due to: ${error.message}`);
+              send({ type: 'log', message: `API rate limit hit, retrying (attempt ${attempt})...` });
+            }
+          }
+        );
         const text = result.response.text();
 
         // Clean markdown code blocks if any
@@ -250,7 +263,18 @@ export async function POST(req: NextRequest) {
           ${JSON.stringify(rawListings, null, 2)}
         `;
 
-        const extractionResult = await model.generateContent(extractionPrompt);
+        // Use exponential backoff retry for rate limiting (429 errors)
+        const extractionResult = await withRetry(
+          async () => model.generateContent(extractionPrompt),
+          {
+            maxRetries: 5,
+            initialDelayMs: 1000,
+            onRetry: (error, attempt, delayMs) => {
+              console.log(`[Scout] Retry attempt ${attempt} for listing extraction after ${delayMs}ms due to: ${error.message}`);
+              send({ type: 'log', message: `API rate limit hit during extraction, retrying (attempt ${attempt})...` });
+            }
+          }
+        );
         const extractionText = extractionResult.response.text();
         const cleanJson = extractionText.replace(/```json/g, '').replace(/```/g, '').trim();
 

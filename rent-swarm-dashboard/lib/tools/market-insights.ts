@@ -1,5 +1,12 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { z } from "zod";
+
+interface ToolMetadata {
+  listings?: any[];
+  bookmarks?: any[];
+  userId?: string;
+}
 
 export const marketInsightsTool = new DynamicStructuredTool({
   name: "get_market_insights",
@@ -8,12 +15,15 @@ export const marketInsightsTool = new DynamicStructuredTool({
     city: z.string().describe("City name (e.g., 'Austin', 'San Francisco', 'Seattle')"),
     neighborhood: z.string().optional().describe("Specific neighborhood or area within the city (optional)"),
   }),
-  func: async (input, config) => {
+  func: async (input, runManager, config?: RunnableConfig) => {
     const { city, neighborhood } = input;
 
+    // Extract metadata safely
+    const metadata = (config?.metadata || {}) as ToolMetadata;
+
     // Get listings from context to calculate real market data
-    const listings = config?.metadata?.listings || [];
-    const bookmarks = config?.metadata?.bookmarks || [];
+    const listings = metadata.listings || [];
+    const bookmarks = metadata.bookmarks || [];
 
     // Filter listings for the specified city
     const cityListings = listings.filter((l: any) =>

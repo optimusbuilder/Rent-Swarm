@@ -5,12 +5,23 @@ import { AgentState } from "./state";
 import { tools } from "../tools";
 import { AIMessage, BaseMessage } from "@langchain/core/messages";
 
-// Initialize Gemini model with tool binding
-const createModel = () => {
+// Initialize Gemini model with tool binding and exponential backoff retry
+const createModel = (systemInstruction?: string) => {
   const model = new ChatGoogleGenerativeAI({
     modelName: "gemini-2.0-flash",
     temperature: 0.7,
     apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
+    ...(systemInstruction && { systemInstruction }),
+    // Exponential backoff retry for rate limiting (429 errors)
+    maxRetries: 5,
+    // LangChain uses exponential backoff by default with these retries
+    callbacks: [
+      {
+        handleLLMError: async (error: any) => {
+          console.error(`[LangChain] LLM Error: ${error.message}`);
+        },
+      },
+    ],
   });
 
   return model.bindTools(tools);
@@ -18,8 +29,6 @@ const createModel = () => {
 
 // Define agent nodes
 async function callModel(state: AgentState) {
-  const model = createModel();
-
   // Pass context to tools via configuration
   const config = {
     metadata: {
@@ -27,13 +36,31 @@ async function callModel(state: AgentState) {
     },
   };
 
-  // CRITICAL: Filter out SystemMessage for Gemini compatibility
-  // Gemini requires SystemMessage to be first, but after tool calls
-  // the message array has [SystemMessage, HumanMessage, AIMessage, ToolMessage]
-  // which violates this rule. We filter out SystemMessages to prevent errors.
-  const filteredMessages = state.messages.filter(msg => msg._getType() !== 'system');
+  // CRITICAL: Extract SystemMessage content for Gemini's systemInstruction parameter
+  // Gemini doesn't support SystemMessage in the messages array - it needs to be passed
+  // as systemInstruction in the model config
+  const firstMessage = state.messages[0];
+  const isFirstMessageSystem = firstMessage?._getType() === 'system';
 
-  const response = await model.invoke(filteredMessages, config);
+  let systemInstruction: string | undefined;
+  let messagesToSend;
+
+  if (isFirstMessageSystem) {
+    // Extract system message content and remove it from messages array
+    systemInstruction = (firstMessage as any).content;
+    messagesToSend = state.messages.slice(1); // Skip the SystemMessage
+    console.log("=== SYSTEM INSTRUCTION ===");
+    console.log(systemInstruction);
+  } else {
+    // No system message - filter out any that might exist
+    messagesToSend = state.messages.filter(msg => msg._getType() !== 'system');
+  }
+
+  console.log("=== MESSAGES TO SEND ===");
+  console.log(JSON.stringify(messagesToSend.map(m => ({ type: m._getType(), content: typeof m.content === 'string' ? m.content.substring(0, 100) : 'non-string' }))));
+
+  const model = createModel(systemInstruction);
+  const response = await model.invoke(messagesToSend, config);
 
   return {
     messages: [...state.messages, response],

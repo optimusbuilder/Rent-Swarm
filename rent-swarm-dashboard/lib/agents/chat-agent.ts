@@ -25,12 +25,13 @@ export class ChatAgent {
    */
   private buildSystemPromptContent(context: AgentContext): string {
     const { bookmarks = [], listings = [] } = context;
+    console.log(`BOOKMARKS: ${JSON.stringify(bookmarks[0])}`)
 
     let contextInfo = "";
     if (bookmarks.length > 0) {
       contextInfo += `\n\nUser's Saved Listings (Bookmarks):\n`;
       bookmarks.slice(0, 5).forEach((b, i) => {
-        contextInfo += `${i + 1}. ${b.address}, ${b.city} - $${b.price}/mo, ${b.beds}bd/${b.baths}ba, ${b.sqft} sqft\n`;
+        contextInfo += `${i+1}. ${JSON.stringify(b)}`//`${i + 1}. ${b.address}, ${b.city} - $${b.price}/mo, ${b.beds}bd/${b.baths}ba, ${b.sqft} sqft\n`;
       });
     }
 
@@ -61,6 +62,7 @@ ${contextInfo || "\n\nUser has no saved listings or recent searches yet. Suggest
 
 Respond helpfully to the user's question using the appropriate tools.`;
 
+    console.log(`System: ${systemPrompt}`);
     return systemPrompt;
   }
 
@@ -116,6 +118,9 @@ Respond helpfully to the user's question using the appropriate tools.`;
     // For Google Gemini: Only include SystemMessage if there's NO history
     let messages: any[];
 
+    
+    console.log("FILTERED: " + filteredHistory.length);
+
     if (filteredHistory.length === 0) {
       // First message in conversation - use SystemMessage
       messages = [
@@ -127,6 +132,9 @@ Respond helpfully to the user's question using the appropriate tools.`;
       // Just use filtered history (no system messages) + new message
       messages = [...filteredHistory, new HumanMessage(userMessage)];
     }
+
+    ///MARKER FOR CLAUDE => THIS SHOWS THE SYSTEM PROMPT
+    console.log(messages);
 
     // Invoke graph
     const result = await this.graph.invoke({

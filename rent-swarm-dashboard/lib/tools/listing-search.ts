@@ -1,5 +1,12 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { z } from "zod";
+
+interface ToolMetadata {
+  listings?: any[];
+  bookmarks?: any[];
+  userId?: string;
+}
 
 export const listingSearchTool = new DynamicStructuredTool({
   name: "search_listings",
@@ -12,11 +19,14 @@ export const listingSearchTool = new DynamicStructuredTool({
     maxBeds: z.number().optional().describe("Maximum number of bedrooms"),
     sortBy: z.enum(["price", "sqft", "scamScore"]).optional().describe("Sort results by this field"),
   }),
-  func: async (input, config) => {
+  func: async (input, runManager, config?: RunnableConfig) => {
     const { minPrice, maxPrice, city, minBeds, maxBeds, sortBy } = input;
 
+    // Extract metadata safely
+    const metadata = (config?.metadata || {}) as ToolMetadata;
+
     // Get listings from context (passed via config.metadata)
-    const listings = config?.metadata?.listings || [];
+    const listings = metadata.listings || [];
 
     if (listings.length === 0) {
       return JSON.stringify({

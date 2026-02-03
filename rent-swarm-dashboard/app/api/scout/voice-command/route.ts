@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { withRetry } from "@/lib/utils/retry";
 
 export async function POST(req: NextRequest) {
     try {
@@ -75,7 +76,17 @@ export async function POST(req: NextRequest) {
       Example Output: { "city": "Austin, TX", "minBudget": null, "maxBudget": 2000, "bedrooms": "2" }
     `;
 
-        const result = await model.generateContent(prompt);
+        // Use exponential backoff retry for rate limiting (429 errors)
+        const result = await withRetry(
+          async () => model.generateContent(prompt),
+          {
+            maxRetries: 5,
+            initialDelayMs: 1000,
+            onRetry: (error, attempt, delayMs) => {
+              console.log(`[VoiceCommand] Retry attempt ${attempt} after ${delayMs}ms due to: ${error.message}`);
+            }
+          }
+        );
         const filters = JSON.parse(result.response.text());
 
         return NextResponse.json({

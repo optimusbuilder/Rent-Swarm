@@ -1,5 +1,12 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { z } from "zod";
+
+interface ToolMetadata {
+  listings?: any[];
+  bookmarks?: any[];
+  userId?: string;
+}
 
 export const priceCalculatorTool = new DynamicStructuredTool({
   name: "calculate_price_metrics",
@@ -8,12 +15,15 @@ export const priceCalculatorTool = new DynamicStructuredTool({
     listingIds: z.array(z.string()).optional().describe("Specific listing IDs to analyze (if empty, analyzes all bookmarks)"),
     monthlyIncome: z.number().optional().describe("User's monthly income in dollars (for affordability calculation using 30% rule)"),
   }),
-  func: async (input, config) => {
+  func: async (input, runManager, config?: RunnableConfig) => {
     const { listingIds, monthlyIncome } = input;
 
+    // Extract metadata safely
+    const metadata = (config?.metadata || {}) as ToolMetadata;
+
     // Get listings and bookmarks from context
-    const listings = config?.metadata?.listings || [];
-    const bookmarks = config?.metadata?.bookmarks || [];
+    const listings = metadata.listings || [];
+    const bookmarks = metadata.bookmarks || [];
 
     // Determine which listings to analyze
     let targetListings: any[] = [];

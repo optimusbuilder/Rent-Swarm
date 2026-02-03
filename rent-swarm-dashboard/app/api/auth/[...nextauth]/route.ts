@@ -1,11 +1,11 @@
 
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import connectToDatabase from "@/lib/db";
 import User from "@/lib/models/User";
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
     session: {
         strategy: "jwt",
     },
@@ -64,6 +64,8 @@ const handler = NextAuth({
         signIn: "/login",
     },
     secret: process.env.NEXTAUTH_SECRET || "fallback_secret_for_dev_only",
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
